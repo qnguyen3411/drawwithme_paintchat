@@ -24,38 +24,55 @@
         </div>
       </div>
       <div id="toolSection" class="bg-info"></div>
+      
       <div id="paletteSection" class="bg-dark">
-        <div id="rgb" class="slidersContainer bg-info"></div>
-        <div id="hsv" class="slidersContainer bg-light"></div>
+        <div id="rgb" class="slidersContainer bg-info mt-1">
+          <button id="zoom1x">zoom 1x</button>
+          <button id="zoom2x">zoom 2x</button>
+          <div class="col-11 mx-auto mt-2">
+            <label class="row"><small class="col-1">Size</small> <input type="range" class="col-9 ml-auto"> </label>
+            <label class="row"><small class="col-1">Zoom</small> <input type="range" class="col-9 ml-auto"> </label>
+          </div>
+        </div>
+        <div id="hsv" class="slidersContainer bg-light mt-1">
+          <button id="">HSV</button>
+          <button id="">RGB</button>
+          <div class="col-12 mx-auto mt-2">
+          <label>R <input type="range" class="col-9"> <small>255</small></label>
+          <label>B <input type="range" class="col-9"> <small>255</small></label>
+          <label>G <input type="range" class="col-9"> <small>255</small></label>
+          <label>A <input type="range" class="col-9"> <small>100</small></label>
+          </div>
+        </div>
         <img id="palette" src="palette.png">
       </div>
     </div>
     <div id="userSection" class="bg-success">
       <div id="roomAction" class=" mx-2 mt-2 bg-info"></div>
       <div id="userList" class=" mx-2 my-2 bg-light p-2">
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
-        <p class="mb-1 text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
+        <p class="mb-0 font-weight-bold text">bobbey</p>
       </div>
-      <div id="chatLog" class=" mx-2 p-2 bg-secondary">
+      <div id="chatLog" class=" mx-2 p-2 bg-dark">
         <div id="messages">
-          <p class="mb-1 text text-others">bobbey (9:06):</p>
-          <p class="mb-1 text text-messages">asdakslfk</p>
-          <p class="mb-1 text text-yours">You (9:06):</p>
-          <p class="mb-1 text text-messages">dssalkdjasl</p>
-          <p class="mb-1 text text-others">bobbey (9:06):</p>
-          <p class="mb-1 text text-messages">lslslslsslsl</p>
+          <p class="mb-0 text text-others">bobbey (9:06):</p>
+          <p class="mb-0 text text-messages">asdakslfk</p>
+          <p class="mb-0 text text-yours">You (9:06):</p>
+          <p class="mb-0 text text-messages">dssalkdjasl</p>
+          <p class="mb-0 text text-others">bobbey (9:06):</p>
+          <p class="mb-0 text text-messages">lslslslsslsl</p>
         </div>
-        <input class="form-control" type="text" name="" id="">
+        <input class="col-12" type="text" name="" id="" style="font-size: 12px;">
       </div>
     </div>
   </div>
@@ -111,57 +128,30 @@
     });
 
     function getMousePos(canvas, evt) {
-    const rect = canvas.getBoundingClientRect();
-    const zoom = $(canvas).css('zoom')
-    return {
-      x: evt.clientX  / zoom - rect.left,
-      y: evt.clientY / zoom - rect.top
-    };
-
-    function getNonZoomedMousePos(canvas, evt) {
-
+      const rect = canvas.getBoundingClientRect();
+      const zoom = $(canvas).css('zoom')
+      return {
+        x: evt.clientX  / zoom - rect.left,
+        y: evt.clientY / zoom - rect.top
+      };
     }
-}
+    function getNonZoomedMousePos(canvas, evt) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: evt.clientX - rect.left,
+        y: evt.clientY - rect.top
+      };
+    }
 
-    // Scrolling functions
-    $(document).scroll(function () {
-      if ($(this).scrollTop() > 1000) {
-        console.log("RESETTING")
-        $(this).scrollTop(1000)
-      }
-    })
 
-    $(window).resize(function (e) {
-      console.log(window.innerWidth)
-      // floatingDiv()
-    })
 
-    // function floatingDiv() {
+    $('#zoom1x').click(function() {handleZoom(1)})
+    $('#zoom2x').click(function() {handleZoom(2)})
 
-    //   //How much the screen has been zoomed.
-    //   var zoomLevel = ((screen.width) / (window.innerWidth));
-    //   //By what factor we must scale the div for it to look the same.
-    //   var inverseZoom = ((window.innerWidth) / (screen.width));
-    //   //The div whose size we want to remain constant.
-    //   var h = document.getElementById("userSection");
-    //   var p = document.getElementById("paletteSection");
-    //   //This ensures that the div stays at the top of the screen at all times. For some reason, the top value is affected by the zoom level of the Div. So we need to multiple the top value by the zoom level for it to adjust to the zoom. 
-    //   // h.style.top = (((window.pageYOffset) + 5) * zoomLevel).toString() + "px";
-
-    //   //This ensures that the window stays on the right side of the screen at all times. Once again, we multiply by the zoom level so that the div's padding scales up.
-    //   // h.style.paddingLeft = ((((window.pageXOffset) + 5) * zoomLevel).toString()) + "px";
-
-    //   //Finally, we shrink the div on a scale of inverseZoom.
-    //   console.log(`${window.innerWidth} - ${h.clientWidth}`)
-    //   h.style.zoom = inverseZoom;
-    //   // $(h).css('left', window.outerWidth + h.clientWidth );
-    //   // console.log(h.style.left)
-    //   p.style.zoom = inverseZoom;
-
-    // }
-
-    //We want the div to readjust every time there is a scroll event:
-    // window.onscroll = flaotingDiv;
+    function handleZoom(zoomVal) {
+      $('#upper, #lower').css('zoom', `${zoomVal}00%`)
+      $(upper.canvas).css('top', `${-2000 - 6 / zoomVal}px`)
+    }
   </script>
 </body>
 

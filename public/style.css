@@ -14,7 +14,7 @@
   /* PAINT SECTION */
   #paintSection {
     display: inline-block;
-    width: calc(100% - 300px);
+    width: calc(100% - 175px);
     height:100%;
     margin-right: -10px;
     vertical-align: top;
@@ -25,8 +25,8 @@
       top: 0px;
       left: 0px;
       display: inline-block;
-      width: calc(100% - 120px);
-      height: calc(100% - 200px);
+      width: calc(100% - 80px);
+      height: calc(100% - 150px);
       margin-right: -10px;
       vertical-align: top;
       overflow: scroll;
@@ -50,15 +50,15 @@
     #toolSection {
       /* position: fixed; */
       display: inline-block;
-      width: 120px;
-      height: calc(100% - 200px);
+      width: 80px;
+      height: calc(100% - 150px);
       vertical-align: top;
     }
 
     #paletteSection {
       /* position: fixed; */
-      width: calc(100% - 290px);
-      height: 200px;
+      width: 100%;
+      height: 150px;
     }
       .slidersContainer {
         vertical-align: top;
@@ -66,6 +66,13 @@
         width: 250px;
         height: 95%;
       }
+      .slidersContainer label {
+        height:20px;
+      }
+      .slidersContainer input {
+        height:10px;
+      }
+
       #palette {
         vertical-align: top;
         height: 90%;
@@ -80,13 +87,13 @@
   #userSection {
     /* position: fixed; */
     display: inline-block;
-    width: 300px;
+    width: 175px;
     height: 100%;
     vertical-align: top;
   }
 
     #roomAction {
-      height: 50px;
+      height: 30px;
     }
 
     #userList {
@@ -105,7 +112,7 @@
      /* USER !SECTION */
 
 .text {
-  font-size: 20px;
+  font-size: 12px;
 }
 .text-others {
   color: palevioletred;
