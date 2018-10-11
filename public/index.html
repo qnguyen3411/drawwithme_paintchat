@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Page Title</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel=stylesheet href=https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css integrity=sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO
+    crossorigin=anonymous>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+    crossorigin="anonymous"></script>
+  <script src="main.js"></script>
+</head>
+
+<body>
+  <div id="mainContainer" class="bg-dark">
+    <div id="paintSection" class="bg-danger">
+      <div id="canvasWindow" class="bg-warning">
+        <div style="height:2000px; width:2000px; overflow: hidden;">
+        <canvas width="2000" height="2000" id="lower"></canvas>
+        <canvas width="2000" height="2000" id="upper"></canvas>
+        </div>
+      </div>
+      <div id="toolSection" class="bg-info"></div>
+      <div id="paletteSection" class="bg-dark">
+        <div id="rgb" class="slidersContainer bg-info"></div>
+        <div id="hsv" class="slidersContainer bg-light"></div>
+        <img id="palette" src="palette.png">
+      </div>
+    </div>
+    <div id="userSection" class="bg-success">
+      <div id="roomAction" class=" mx-2 mt-2 bg-info"></div>
+      <div id="userList" class=" mx-2 my-2 bg-light p-2">
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+        <p class="mb-1 text">bobbey</p>
+      </div>
+      <div id="chatLog" class=" mx-2 p-2 bg-secondary">
+        <div id="messages">
+          <p class="mb-1 text text-others">bobbey (9:06):</p>
+          <p class="mb-1 text text-messages">asdakslfk</p>
+          <p class="mb-1 text text-yours">You (9:06):</p>
+          <p class="mb-1 text text-messages">dssalkdjasl</p>
+          <p class="mb-1 text text-others">bobbey (9:06):</p>
+          <p class="mb-1 text text-messages">lslslslsslsl</p>
+        </div>
+        <input class="form-control" type="text" name="" id="">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // const ctx = $('#bCanvas')[0].getContext('2d');
+    var x;
+    var y;
+
+    var lower = $('#lower').get(0).getContext('2d');
+    var upper = $('#upper').get(0).getContext('2d');
+    var offset = $('#upper').offset();
+    var scroll = { top: 0, left: 0 }
+    console.log(offset)
+    var dragging = false;
+
+    function drawStroke(ctx) {
+      var i;
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(x[0], y[0]);
+      for (i = 1; i < x.length; i++) {
+        ctx.lineTo(x[i], y[i]);
+      }
+      ctx.stroke();
+    }
+
+    $('#upper').mousedown(function (e) {
+      const mousePos = getMousePos(upper.canvas, e)
+      const zoom = $(upper.canvas).css('zoom')
+      x = [mousePos.x];
+      y = [mousePos.y];
+      dragging = true
+    });
+
+    $('#upper').mousemove(function (e) {
+      if (dragging) {
+        const mousePos = getMousePos(upper.canvas, e)
+        const zoom = $(upper.canvas).css('zoom')
+        x.push(mousePos.x);
+        y.push(mousePos.y);
+        upper.clearRect(0, 0, upper.canvas.width, upper.canvas.height);
+        drawStroke(upper);
+      }
+    });
+
+    $('#upper').mouseup(function (e) {
+      dragging = false;
+      upper.clearRect(0, 0, upper.canvas.width, upper.canvas.height);
+      console.log(x)
+      drawStroke(lower);
+    });
+
+    function getMousePos(canvas, evt) {
+    const rect = canvas.getBoundingClientRect();
+    const zoom = $(canvas).css('zoom')
+    return {
+      x: evt.clientX  / zoom - rect.left,
+      y: evt.clientY / zoom - rect.top
+    };
+
+    function getNonZoomedMousePos(canvas, evt) {
+
+    }
+}
+
+    // Scrolling functions
+    $(document).scroll(function () {
+      if ($(this).scrollTop() > 1000) {
+        console.log("RESETTING")
+        $(this).scrollTop(1000)
+      }
+    })
+
+    $(window).resize(function (e) {
+      console.log(window.innerWidth)
+      // floatingDiv()
+    })
+
+    // function floatingDiv() {
+
+    //   //How much the screen has been zoomed.
+    //   var zoomLevel = ((screen.width) / (window.innerWidth));
+    //   //By what factor we must scale the div for it to look the same.
+    //   var inverseZoom = ((window.innerWidth) / (screen.width));
+    //   //The div whose size we want to remain constant.
+    //   var h = document.getElementById("userSection");
+    //   var p = document.getElementById("paletteSection");
+    //   //This ensures that the div stays at the top of the screen at all times. For some reason, the top value is affected by the zoom level of the Div. So we need to multiple the top value by the zoom level for it to adjust to the zoom. 
+    //   // h.style.top = (((window.pageYOffset) + 5) * zoomLevel).toString() + "px";
+
+    //   //This ensures that the window stays on the right side of the screen at all times. Once again, we multiply by the zoom level so that the div's padding scales up.
+    //   // h.style.paddingLeft = ((((window.pageXOffset) + 5) * zoomLevel).toString()) + "px";
+
+    //   //Finally, we shrink the div on a scale of inverseZoom.
+    //   console.log(`${window.innerWidth} - ${h.clientWidth}`)
+    //   h.style.zoom = inverseZoom;
+    //   // $(h).css('left', window.outerWidth + h.clientWidth );
+    //   // console.log(h.style.left)
+    //   p.style.zoom = inverseZoom;
+
+    // }
+
+    //We want the div to readjust every time there is a scroll event:
+    // window.onscroll = flaotingDiv;
+  </script>
+</body>
+
+</html>

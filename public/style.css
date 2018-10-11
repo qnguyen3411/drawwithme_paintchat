@@ -1,0 +1,118 @@
+/* ::-webkit-scrollbar { 
+  display: none; 
+} */
+/* html, body {
+  height: 100%;
+  overflow: hidden;
+} */
+
+#mainContainer {
+  height:100vh;
+  width: 100vw;
+  
+}
+  /* PAINT SECTION */
+  #paintSection {
+    display: inline-block;
+    width: calc(100% - 300px);
+    height:100%;
+    margin-right: -10px;
+    vertical-align: top;
+  }
+
+    #canvasWindow {
+      /* position: absolute; */
+      top: 0px;
+      left: 0px;
+      display: inline-block;
+      width: calc(100% - 120px);
+      height: calc(100% - 200px);
+      margin-right: -10px;
+      vertical-align: top;
+      overflow: scroll;
+    }
+
+    #lower {
+      /* position: absolute; */
+      background-color: white;
+      zoom: 100%;
+      /* top: 0px;
+      left: 0px; */
+    }
+    #upper {
+      position: relative;
+      /* background-color:green; */
+      top: -2006px;
+      zoom: 100%;
+      /* left: 0px; */
+    }
+
+    #toolSection {
+      /* position: fixed; */
+      display: inline-block;
+      width: 120px;
+      height: calc(100% - 200px);
+      vertical-align: top;
+    }
+
+    #paletteSection {
+      /* position: fixed; */
+      width: calc(100% - 290px);
+      height: 200px;
+    }
+      .slidersContainer {
+        vertical-align: top;
+        display: inline-block;
+        width: 250px;
+        height: 95%;
+      }
+      #palette {
+        vertical-align: top;
+        height: 90%;
+        margin-top: 1%;
+        width: calc(100% - 520px);
+      }
+
+  /* PAINT !SECTION */
+
+
+  /* USER SECTION  */
+  #userSection {
+    /* position: fixed; */
+    display: inline-block;
+    width: 300px;
+    height: 100%;
+    vertical-align: top;
+  }
+
+    #roomAction {
+      height: 50px;
+    }
+
+    #userList {
+      height: calc(40% - 25px);
+      /* zoom: 200%; */
+      overflow: scroll;
+    }
+
+    #chatLog {
+      height: calc(55% - 25px);
+      
+    } 
+      #messages{
+        height: calc(100% - 40px);
+      }
+     /* USER !SECTION */
+
+.text {
+  font-size: 20px;
+}
+.text-others {
+  color: palevioletred;
+}
+.text-yours {
+  color: aqua;
+}
+.text-messages {
+  color: rgb(220, 220, 220);
+}
