@@ -8,9 +8,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel=stylesheet href=https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css integrity=sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO
     crossorigin=anonymous>
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
   <link rel="stylesheet" href="style.css">
   <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
     crossorigin="anonymous"></script>
+    
   <script src="main.js"></script>
 </head>
 
@@ -18,26 +20,34 @@
   <div id="mainContainer" class="bg-dark">
     <div id="paintSection" class="bg-danger">
       <div id="canvasWindow" class="bg-warning">
-        <div style="height:2000px; width:2000px; overflow: hidden;">
-        <canvas width="2000" height="2000" id="lower"></canvas>
-        <canvas width="2000" height="2000" id="upper"></canvas>
+        <div id="canvasContainer" style="height:1024px; width:1820px; overflow: hidden; position: relative;">
+        <canvas width="1820" height="1024" id="lower"></canvas>
+        <canvas width="1820" height="1024" id="upper"></canvas>
         </div>
       </div>
-      <div id="toolSection" class="bg-info"></div>
+      <div id="toolSection" class="bg-warning"></div>
       
       <div id="paletteSection" class="bg-dark">
         <div id="rgb" class="slidersContainer bg-info mt-1">
           <button id="zoom1x">zoom 1x</button>
           <button id="zoom2x">zoom 2x</button>
-          <div class="col-11 mx-auto mt-2">
-            <label class="row"><small class="col-1">Size</small> <input type="range" class="col-9 ml-auto"> </label>
-            <label class="row"><small class="col-1">Zoom</small> <input type="range" class="col-9 ml-auto"> </label>
+          <div class="col-10 mx-auto mt-2">
+          
+            <div class="row">
+              <small class="">Size: 100</small> 
+              <input type="range" class="form-control-range ml-auto"> 
+
+            </div>
+            <div class="row">
+              <small class="">Zoom: 100%</small> 
+              <input type="range" class="form-control-range ml-auto"> 
+            </div>
           </div>
         </div>
         <div id="hsv" class="slidersContainer bg-light mt-1">
           <button id="">HSV</button>
           <button id="">RGB</button>
-          <div class="col-12 mx-auto mt-2">
+          <div class="col-12 mx-auto mt-1">
           <label>R <input type="range" class="col-9"> <small>255</small></label>
           <label>B <input type="range" class="col-9"> <small>255</small></label>
           <label>G <input type="range" class="col-9"> <small>255</small></label>
@@ -48,7 +58,9 @@
       </div>
     </div>
     <div id="userSection" class="bg-success">
-      <div id="roomAction" class=" mx-2 mt-2 bg-info"></div>
+      <div id="roomAction" class=" mx-2 mt-2 bg-info">
+          <button class="btn-dark"><i class="fas fa-sign-out-alt"></i></button>
+      </div>
       <div id="userList" class=" mx-2 my-2 bg-light p-2">
         <p class="mb-0 font-weight-bold text">bobbey</p>
         <p class="mb-0 font-weight-bold text">bobbey</p>
@@ -78,7 +90,6 @@
   </div>
 
   <script>
-    // const ctx = $('#bCanvas')[0].getContext('2d');
     var x;
     var y;
 
@@ -86,9 +97,40 @@
     var upper = $('#upper').get(0).getContext('2d');
     var offset = $('#upper').offset();
     var scroll = { top: 0, left: 0 }
-    console.log(offset)
+    const originalSize = {width: 1820, height: 1024}
     var dragging = false;
+    var ctrlDragging = false;
 
+    let pan = {
+      ctrlDragging : false, 
+
+      mouseDown : function(e) {
+        x = [e.clientX]
+        y = [e.clientY]
+        this.ctrlDragging = true;
+        console.log("OK")
+      },
+
+      mouseMove : function(e) {
+        if (!this.ctrlDragging) { return; }
+        $('#canvasWindow').scrollTop(
+          $('#canvasWindow').scrollTop() - e.clientY + y.pop())
+        $('#canvasWindow').scrollLeft(
+          $('#canvasWindow').scrollLeft() - e.clientX + x.pop())
+        x.push(e.clientX);
+        y.push(e.clientY);
+      },
+
+      mouseUp : function(e) {
+        this.ctrlDragging = false;
+      },
+
+      keyUp : function(e) {
+        this.ctrlDragging = e.ctrlKey;
+      }
+    }
+
+    
     function drawStroke(ctx) {
       var i;
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
@@ -102,30 +144,38 @@
     }
 
     $('#upper').mousedown(function (e) {
-      const mousePos = getMousePos(upper.canvas, e)
-      const zoom = $(upper.canvas).css('zoom')
-      x = [mousePos.x];
-      y = [mousePos.y];
-      dragging = true
+      if(e.ctrlKey || e.metaKey) {
+        pan.mouseDown(e)
+      } else {
+        const mousePos = getMousePos(upper.canvas, e)
+        const zoom = $(upper.canvas).css('zoom')
+        x = [mousePos.x];
+        y = [mousePos.y];
+        dragging = true
+      }
     });
 
     $('#upper').mousemove(function (e) {
+      pan.mouseMove(e)
+      
       if (dragging) {
-        const mousePos = getMousePos(upper.canvas, e)
-        const zoom = $(upper.canvas).css('zoom')
-        x.push(mousePos.x);
-        y.push(mousePos.y);
-        upper.clearRect(0, 0, upper.canvas.width, upper.canvas.height);
-        drawStroke(upper);
+          const mousePos = getMousePos(upper.canvas, e)
+          const zoom = $(upper.canvas).css('zoom')
+          x.push(mousePos.x);
+          y.push(mousePos.y);
+          upper.clearRect(0, 0, upper.canvas.width, upper.canvas.height);
+          drawStroke(upper);
       }
     });
 
     $('#upper').mouseup(function (e) {
+      pan.keyUp(e)
       dragging = false;
       upper.clearRect(0, 0, upper.canvas.width, upper.canvas.height);
-      console.log(x)
       drawStroke(lower);
     });
+
+    $(document).keyup(e => pan.keyUp(e))
 
     function getMousePos(canvas, evt) {
       const rect = canvas.getBoundingClientRect();
@@ -135,6 +185,7 @@
         y: evt.clientY / zoom - rect.top
       };
     }
+
     function getNonZoomedMousePos(canvas, evt) {
       const rect = canvas.getBoundingClientRect();
       return {
@@ -143,14 +194,14 @@
       };
     }
 
-
-
     $('#zoom1x').click(function() {handleZoom(1)})
     $('#zoom2x').click(function() {handleZoom(2)})
 
     function handleZoom(zoomVal) {
+      $('#canvasContainer').width(originalSize.width * zoomVal)
+      $('#canvasContainer').height(originalSize.height * zoomVal)
       $('#upper, #lower').css('zoom', `${zoomVal}00%`)
-      $(upper.canvas).css('top', `${-2000 - 6 / zoomVal}px`)
+      $(upper.canvas).css('top', `${-1024 - 6 / zoomVal}px`)
     }
   </script>
 </body>

@@ -14,18 +14,19 @@
   /* PAINT SECTION */
   #paintSection {
     display: inline-block;
-    width: calc(100% - 175px);
+    width: calc(100% - 200px);
     height:100%;
     margin-right: -10px;
     vertical-align: top;
   }
 
     #canvasWindow {
-      /* position: absolute; */
+      position: relative;
+      
       top: 0px;
       left: 0px;
       display: inline-block;
-      width: calc(100% - 80px);
+      width: calc(100% - 60px);
       height: calc(100% - 150px);
       margin-right: -10px;
       vertical-align: top;
@@ -42,7 +43,7 @@
     #upper {
       position: relative;
       /* background-color:green; */
-      top: -2006px;
+      top: -1030px;
       zoom: 100%;
       /* left: 0px; */
     }
@@ -50,7 +51,7 @@
     #toolSection {
       /* position: fixed; */
       display: inline-block;
-      width: 80px;
+      width: 60px;
       height: calc(100% - 150px);
       vertical-align: top;
     }
@@ -70,7 +71,7 @@
         height:20px;
       }
       .slidersContainer input {
-        height:10px;
+        height:15px;
       }
 
       #palette {
@@ -87,7 +88,7 @@
   #userSection {
     /* position: fixed; */
     display: inline-block;
-    width: 175px;
+    width: 200px;
     height: 100%;
     vertical-align: top;
   }
@@ -115,11 +116,16 @@
   font-size: 12px;
 }
 .text-others {
-  color: palevioletred;
+  color: rgb(230, 109, 125);
 }
 .text-yours {
   color: aqua;
 }
 .text-messages {
   color: rgb(220, 220, 220);
+}
+
+.slidersContainer button {
+  font-size: 10px;
+  height:20px;
 }
