@@ -1,62 +1,13 @@
 $(document).ready(() => {
-  class Stroke {
-    x = [];
-    y = [];
-    ctx;
-    rgb = [];
-    alpha = 1;
-    constructor(ctx) {
-      this.ctx = ctx;
-    }
-    setColor(r, g, b, a) {
-
-    }
-
-    setPath(xPath, yPath) {
-      this.x = xPath;
-      this.y = yPath;
-    }
-
-  }
-
-  let x;
-  let y;
 
   let lower = $('#lower').get(0).getContext('2d');
   let upper = $('#upper').get(0).getContext('2d');
   const originalSize = { width: 1820, height: 1024 }
   let dragging = false;
+  let myStroke;
   let size = 1;
-
-  let pan = {
-    scroller: $('#canvasWindow').get(0),
-    ctrlDragging: false,
-
-    mouseDown: function (e) {
-      x = [e.clientX]
-      y = [e.clientY]
-      this.ctrlDragging = true;
-      console.log("OK")
-    },
-
-    mouseMove: function (e) {
-      if (!this.ctrlDragging) { return; }
-      $(this.scroller).scrollTop(
-        $(this.scroller).scrollTop() - e.clientY + y.pop())
-      $(this.scroller).scrollLeft(
-        $(this.scroller).scrollLeft() - e.clientX + x.pop())
-      x.push(e.clientX);
-      y.push(e.clientY);
-    },
-
-    mouseUp: function (e) {
-      this.ctrlDragging = false;
-    },
-
-    keyUp: function (e) {
-      this.ctrlDragging = e.ctrlKey;
-    }
-  }
+  let palette = new Palette($('#palette canvas').get(0), 'palette.png')
+  PanModule.setPannable($('#canvasWindow').get(0));
 
   let colorPicker = {
     slider1: $('#slider1').get(0),
@@ -100,6 +51,15 @@ $(document).ready(() => {
 
     alphaVal: function () {
       return $(this.aSlider).val() / 100
+    },
+
+    rgba: function() {
+      if (this.mode == 'rgba') {
+        return [...this.sliderVals(), this.alphaVal()];
+      } else {
+        const rgbVals = this.hslToRgb(...this.sliderVals());
+        return [...rgbVals, this.alphaVal()];
+      }
     },
 
     setSliders: function (val1, val2, val3) {
@@ -194,23 +154,14 @@ $(document).ready(() => {
 
   }
 
-  const palCtx = $('#palette canvas').get(0).getContext('2d');
-  const img = new Image()
-  img.setAttribute("src", 'palette.png')
-  img.addEventListener("load", function () {
-    palCtx.drawImage(img, 0, 0, palCtx.canvas.width, palCtx.canvas.height)
-  })
-
   $('#palette').mousedown(function (e) {
-    const mousePos = getNonZoomedMousePos(palCtx.canvas, e)
-    const imgData = palCtx.getImageData(mousePos.x, mousePos.y, 1, 1);
-    colorPicker.setSlidersWithRgbVals(...imgData.data)
+    const mousePos = getMousePos(palette.canvas, e, true)
+    colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
     dragging = true;
   }).mousemove(function (e) {
     if (dragging) {
-      const mousePos = getNonZoomedMousePos(palCtx.canvas, e)
-      const imgData = palCtx.getImageData(mousePos.x, mousePos.y, 1, 1);
-      colorPicker.setSlidersWithRgbVals(...imgData.data)
+      const mousePos = getMousePos(palette.canvas, e, true)
+      colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
     }
   }).mouseup(function () {
     dragging = false;
@@ -218,58 +169,31 @@ $(document).ready(() => {
     dragging = false;
   })
 
-  function setCtx() {
-    [lower, upper].forEach(ctx => {
-      ctx.strokeStyle = colorPicker.cssString();
-      ctx.lineWidth = size;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = "round";
-    })
-  }
-
-  function drawStroke(ctx) {
-    var i;
-    ctx.beginPath();
-    ctx.moveTo(x[0], y[0]);
-    for (i = 1; i < x.length; i++) {
-      ctx.lineTo(x[i], y[i]);
-    }
-    ctx.stroke();
-  }
 
   $('#upper').mousedown(function (e) {
-    if (e.ctrlKey || e.metaKey) {
-      pan.mouseDown(e)
-    } else {
-      setCtx();
+    if (!e.ctrlKey && !e.metaKey) {
       const mousePos = getMousePos(upper.canvas, e)
-      x = [mousePos.x];
-      y = [mousePos.y];
+      myStroke = new Stroke(upper, lower);
+      myStroke.getBrushSettings(colorPicker.rgba(), size);
+      myStroke.start(mousePos.x, mousePos.y)
       dragging = true
     }
   });
 
   $('#upper').mousemove(function (e) {
-    if (pan.ctrlDragging) {
-      pan.mouseMove(e)
-    }
-    else if (dragging) {
+    if (dragging) {
       const mousePos = getMousePos(upper.canvas, e)
-      x.push(mousePos.x);
-      y.push(mousePos.y);
-      upper.clearRect(0, 0, upper.canvas.width, upper.canvas.height);
-      drawStroke(upper);
+      myStroke.update(mousePos.x, mousePos.y);
     }
   });
 
   $('#upper').mouseup(function (e) {
-    pan.keyUp(e)
-    dragging = false;
-    upper.clearRect(0, 0, upper.canvas.width, upper.canvas.height);
-    drawStroke(lower);
+    if(dragging) {
+      myStroke.end();
+      dragging = false;
+    }
   });
 
-  $(document).keyup(e => pan.keyUp(e))
 
   $('#slider1, #slider2, #slider3, #slider4').on("input change", function () {
     colorPicker.updateColorBox();
@@ -281,20 +205,12 @@ $(document).ready(() => {
   })
 
 
-  function getMousePos(canvas, evt) {
+  function getMousePos(canvas, evt, zoomed=true) {
     const rect = canvas.getBoundingClientRect();
-    const zoom = $(canvas).css('zoom')
+    const zoom = (zoomed) ? $(canvas).css('zoom') : 1;
     return {
       x: evt.clientX / zoom - rect.left,
       y: evt.clientY / zoom - rect.top
-    };
-  }
-
-  function getNonZoomedMousePos(canvas, evt) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: evt.clientX - rect.left,
-      y: evt.clientY - rect.top
     };
   }
 
@@ -314,8 +230,5 @@ $(document).ready(() => {
     $('#canvasContainer').width(originalSize.width * zoomVal / 100)
     $('#canvasContainer').height(originalSize.height * zoomVal / 100)
     $('#upper, #lower').css('zoom', `${zoomVal}%`)
-    $(upper.canvas).css('top', `${-1024 - 6 / zoomVal * 100}px`)
   }
-
-  
 });

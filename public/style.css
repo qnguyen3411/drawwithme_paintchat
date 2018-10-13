@@ -46,11 +46,10 @@
       left: 0px; */
     }
     #upper {
-      position: relative;
-      /* background-color:green; */
-      top: -1030px;
+      position: absolute;
+      top: 0px;
       zoom: 100%;
-      /* left: 0px; */
+      left: 0px;
     }
 
     #toolSection {
