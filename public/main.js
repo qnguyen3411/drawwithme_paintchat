@@ -146,7 +146,6 @@ $(document).ready(() => {
     if (e.buttons == 1) {
       const mousePos = getMousePos(palette.canvas, e)
       colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
-      colorPicker.updateAllDisplays();
     }
   })
   // Drawing
@@ -190,7 +189,7 @@ $(document).ready(() => {
     $('#canvasContainer')
     .width(originalSize.width * zoomVal )
     .height(originalSize.height * zoomVal)
-    .children().css('zoom', zoomVal)
+    .children().css('zoom', zoomVal);
   })
 
 
@@ -203,10 +202,9 @@ $(document).ready(() => {
       .get(0).getContext('2d');
   }
 
-  socket.on('otherUsers', (dict) => {
-    Object.entries(dict).forEach(([id, user]) => {
+  socket.on('otherUsers', (userDict) => {
+    Object.entries(userDict).forEach(([id, user]) => {
       user.ctx = generateNewCtx(id)
-      console.log(user)
       ctxDict[id] = user 
     })
   })
@@ -224,14 +222,12 @@ $(document).ready(() => {
 
   socket.on('otherStrokeStart', ({id, strokeData: {rgba, size, x, y}}) => {
     const otherGuy = ctxDict[id];
-    console.log(otherGuy)
     otherGuy.stroke = new Stroke(otherGuy.ctx, lower)
       .setBrush(rgba, size)
       .start(x[0], y[0]);
   })
 
   socket.on('otherStrokeUpdate', ({id, newPoint: {x, y} }) => {
-    console.log(ctxDict[id])
     ctxDict[id].stroke.update(x, y)
   })
 
