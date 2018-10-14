@@ -28,9 +28,7 @@ class PanModule {
         this.x.push(e.clientX);
         this.y.push(e.clientY);
       }
-    }).on('mouseup mouseleave', () => {
-      this.ctrlDragging = false;
-    });
+    }).on('mouseup mouseleave', () =>  this.ctrlDragging = false);
    
   }
 }

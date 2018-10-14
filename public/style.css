@@ -39,13 +39,10 @@
     }
 
     #lower {
-      /* position: absolute; */
       background-color: white;
-      zoom: 100%;
-      /* top: 0px;
-      left: 0px; */
     }
-    #upper {
+   
+    #canvasContainer canvas {
       position: absolute;
       top: 0px;
       zoom: 100%;

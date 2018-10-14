@@ -19,6 +19,7 @@ class Stroke {
     this.ctx.strokeStyle = `rgba(${rgba.join(', ')})`;
     this.ctx.fillStyle = `rgba(${rgba.join(', ')})`;
     this.ctx.lineWidth = size;
+    return this;
   }
 
   draw(ctx) {
@@ -35,12 +36,14 @@ class Stroke {
       }
       ctx.stroke();
     }
+    return this;
   }
 
   start(startX, startY) {
     this.x = [startX];
     this.y = [startY];
     this.draw(this.ctx);
+    return this;
   }
 
   update(newX, newY) {
@@ -48,6 +51,7 @@ class Stroke {
     this.y.push(newY);
     this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.draw(this.ctx);
+    return this;
   }
 
   end() {
@@ -56,6 +60,7 @@ class Stroke {
     this.baseCtx.strokeStyle = `rgba(${this.rgba.join(', ')})`;
     this.baseCtx.fillStyle = `rgba(${this.rgba.join(', ')})`;
     this.draw(this.baseCtx);
+    return this;
   }
 
   getData() {
