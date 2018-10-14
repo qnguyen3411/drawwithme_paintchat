@@ -13,7 +13,7 @@ class Stroke {
     this.y = [];
   }
 
-  getBrushSettings(rgba, size) {
+  setBrush(rgba, size) {
     this.rgba = rgba;
     this.size = size;
     this.ctx.strokeStyle = `rgba(${rgba.join(', ')})`;
@@ -56,5 +56,14 @@ class Stroke {
     this.baseCtx.strokeStyle = `rgba(${this.rgba.join(', ')})`;
     this.baseCtx.fillStyle = `rgba(${this.rgba.join(', ')})`;
     this.draw(this.baseCtx);
+  }
+
+  getData() {
+    return {
+      rgba: this.rgba,
+      size: this.size,
+      x: this.x,
+      y: this.y
+    }
   }
 }

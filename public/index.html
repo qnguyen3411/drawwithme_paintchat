@@ -12,7 +12,8 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
     crossorigin="anonymous"></script>
-    
+  <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+
   <script src="panModule.js"></script>
   <script src="palette.js"></script>
   <script src="stroke.js"></script>
@@ -40,13 +41,17 @@
         <div id="rgb" class="slidersContainer bg-info mt-1">
           <div class="col-10 mx-auto mt-2">
             <div class="row">
-              <small id="sizeSliderLabel">Size: 1</small> 
-              <input id="sizeSlider" type="range" min="1" max="100" value="1" class="form-control-range ml-auto"> 
+              <form oninput="display.value = 'Size: ' + sl.value">
+                <output name="display" class="small">Size: 1</output> 
+                <input name="sl" id="sizeSlider" type="range" min="1" max="100" value="1" class="form-control-range ml-auto"> 
+              </form> 
             </div>
             <div class="row">
-              <small id="zoomSliderLabel">Zoom: 100%</small> 
-              <input id="zoomSlider" type="range" min="100" max="300" value="100" class="form-control-range ml-auto"> 
-            </div>
+              <form oninput="display.value = 'Zoom: ' + sl.value + '%'">
+                <output name="display" class="small">Zoom: 100%</output> 
+                <input id="zoomSlider" name="sl" type="range" min="100" max="300" value="100" class="form-control-range ml-auto"> 
+              </form>
+          </div>
           </div>
         </div>
         <div id="colorSliders" class="slidersContainer bg-light mt-1">
@@ -66,7 +71,6 @@
         </div>
         <div id="palette">
           <canvas width="600" height="114"></canvas>
-        <!-- <img id="palette" src="palette.png"> -->
         </div>
       </div>
     </div>

@@ -1,4 +1,6 @@
 $(document).ready(() => {
+  let socket = io();
+  let ctxDict = {}
 
   let lower = $('#lower').get(0).getContext('2d');
   let upper = $('#upper').get(0).getContext('2d');
@@ -41,12 +43,12 @@ $(document).ready(() => {
       return `${this.mode}(${colorStr})`
     },
 
+    colorSliders: function() {
+      return [this.slider1, this.slider2, this.slider3];
+    },
+
     sliderVals: function () {
-      return [
-        $(this.slider1).val(),
-        $(this.slider2).val(),
-        $(this.slider3).val(),
-      ]
+      return this.colorSliders().map(sl => $(sl).val())
     },
 
     alphaVal: function () {
@@ -63,17 +65,15 @@ $(document).ready(() => {
     },
 
     setSliders: function (val1, val2, val3) {
-      $(this.slider1).val(val1)
-      $(this.slider2).val(val2)
-      $(this.slider3).val(val3)
+      this.colorSliders().forEach((sl, i) => $(sl).val(arguments[i]))
       this.updateColorBox()
     },
 
     setSlidersWithRgbVals: function (val1, val2, val3) {
       if (this.mode == 'rgba') {
-        this.setSliders(val1, val2, val3);
+        this.setSliders(...arguments);
       } else {
-        const hsl = this.rgbToHsl(val1, val2, val3);
+        const hsl = this.rgbToHsl(...arguments);
         this.setSliders(...hsl);
       }
       this.updateAllDisplays()
@@ -96,8 +96,9 @@ $(document).ready(() => {
         $(`#slider${index + 1}Label`).html(char.toUpperCase())
       })
     },
+
     updateSliderValLabels() {
-      [this.slider1, this.slider2, this.slider3, this.aSlider].forEach(slider => {
+      [...this.colorSliders(), this.aSlider].forEach(slider => {
         $(slider).siblings('.sliderVal').html($(slider).val());
       })
     },
@@ -154,48 +155,35 @@ $(document).ready(() => {
 
   }
 
-  $('#palette').mousedown(function (e) {
-    const mousePos = getMousePos(palette.canvas, e, true)
-    colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
-    dragging = true;
-  }).mousemove(function (e) {
-    if (dragging) {
-      const mousePos = getMousePos(palette.canvas, e, true)
+  $('#palette').on('mousedown mousemove', function(e) {
+    if(e.buttons == 1) {
+      const mousePos = getMousePos(palette.canvas, e)
       colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
     }
-  }).mouseup(function () {
-    dragging = false;
-  }).mouseleave(function() {
-    dragging = false;
   })
 
-
-  $('#upper').mousedown(function (e) {
+  $('#canvasContainer').mousedown(function (e) {
     if (!e.ctrlKey && !e.metaKey) {
-      const mousePos = getMousePos(upper.canvas, e)
+      const mousePos = getMousePos(upper.canvas, e);
       myStroke = new Stroke(upper, lower);
-      myStroke.getBrushSettings(colorPicker.rgba(), size);
-      myStroke.start(mousePos.x, mousePos.y)
-      dragging = true
+      myStroke.setBrush(colorPicker.rgba(), size);
+      myStroke.start(mousePos.x, mousePos.y);
+      socket.emit('strokeStart', myStroke.getData()),
+      dragging = true;
     }
+  }).mousemove(function (e) {
+    if (!dragging) { return; }
+    const mousePos = getMousePos(upper.canvas, e);
+    myStroke.update(mousePos.x, mousePos.y);
+    socket.emit('strokeUpdate', mousePos)
+  }).on('mouseup mouseleave',() => {
+    if (!dragging) { return; }
+    dragging = false;
+    myStroke.end();
+    socket.emit('strokeEnd')
   });
 
-  $('#upper').mousemove(function (e) {
-    if (dragging) {
-      const mousePos = getMousePos(upper.canvas, e)
-      myStroke.update(mousePos.x, mousePos.y);
-    }
-  });
-
-  $('#upper').mouseup(function (e) {
-    if(dragging) {
-      myStroke.end();
-      dragging = false;
-    }
-  });
-
-
-  $('#slider1, #slider2, #slider3, #slider4').on("input change", function () {
+  $("#colorSliders input").on("input change", function () {
     colorPicker.updateColorBox();
     colorPicker.updateSliderValLabels();
   })
@@ -203,7 +191,6 @@ $(document).ready(() => {
   $('.colorModeBtn').click(function () {
     colorPicker.changeMode($(this).attr('mode'))
   })
-
 
   function getMousePos(canvas, evt, zoomed=true) {
     const rect = canvas.getBoundingClientRect();
@@ -215,20 +202,66 @@ $(document).ready(() => {
   }
 
   $('#sizeSlider').on("input change", function() {
-    const val = $(this).val()
-    $('#sizeSliderLabel').html(`Size: ${val}`)
-    size = val;
+    size = $(this).val();
   })
 
   $('#zoomSlider').on("input change", function() {
-    const val = $(this).val()
-    $('#zoomSliderLabel').html(`Zoom: ${val}%`)
-    handleZoom(val);
+    handleZoom($(this).val());
   })
 
   function handleZoom(zoomVal) {
-    $('#canvasContainer').width(originalSize.width * zoomVal / 100)
-    $('#canvasContainer').height(originalSize.height * zoomVal / 100)
-    $('#upper, #lower').css('zoom', `${zoomVal}%`)
+    $('#canvasContainer')
+    .width(originalSize.width * zoomVal / 100)
+    .height(originalSize.height * zoomVal / 100)
+    $('#canvasContainer canvas').css('zoom', `${zoomVal}%`)
   }
+
+  function generateNewCtx(id) {
+    $('#canvasContainer').append(
+      `<canvas width="1820" height="1024" id="${id}"></canvas>`)
+    const canvas = $(`#${id}`).get(0);
+    $(canvas).css({ 
+      position: 'absolute', top: '0px',
+      left: '0px', zoom: $('#lower').css('zoom'),
+      })
+    return canvas.getContext('2d');
+  }
+
+  socket.on('otherUsers', (dict) => {
+    Object.entries(dict).forEach(([id, user]) => {
+      const ctx = generateNewCtx(id)
+      user['ctx'] = ctx
+      ctxDict[id] = user 
+    })
+  })
+
+  socket.on('userJoined', (data) => {
+    console.log("USER JOINED")
+    const ctx = generateNewCtx(data['id'])
+    ctxDict[data['id']] = {username:"Guest" ,ctx: ctx, stroke: null}
+  })
+
+  socket.on('userDisconnected', (data) => {
+    $(`#${data['id']}`).remove();
+    delete ctxDict[data['id']]
+  })
+
+  socket.on('otherStrokeStart', (data) => {
+    const otherGuy = ctxDict[data.id];
+    const stroke = new Stroke(otherGuy.ctx, lower);
+    stroke.setBrush(data.strokeData.rgba, data.strokeData.size);
+    stroke.start(data.strokeData.x[0], data.strokeData.y[0]);
+    otherGuy.stroke = stroke;
+  })
+
+  socket.on('otherStrokeUpdate', (data) => {
+    const stroke = ctxDict[data.id].stroke
+    stroke.update(data.newPoint.x, data.newPoint.y)
+  })
+
+  socket.on('otherStrokeEnd', (data) => {
+    const stroke = ctxDict[data.id].stroke
+    stroke.end()
+  })
+
 });
