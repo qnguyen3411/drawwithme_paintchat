@@ -2,11 +2,12 @@ $(document).ready(() => {
   let socket = io();
   let ctxDict = {}
 
-  let lower = $('#lower').get(0).getContext('2d');
+  let base = $('#lower').get(0).getContext('2d');
   let upper = $('#upper').get(0).getContext('2d');
-  let dragging = false;
   let myStroke;
+  let isPenDown = false;
   let size = 1;
+  let zoom = 1;
   let palette = new Palette($('#palette canvas').get(0), 'palette.png')
   PanModule.setPannable($('#canvasWindow').get(0));
 
@@ -24,7 +25,8 @@ $(document).ready(() => {
         const colorTransform = this[(this.mode == 'rgba') ? 'rgbToHsl' : 'hslToRgb'];
         this.mode = mode;
         newVals = colorTransform(...this.sliderVals());
-        this.updateSliderRange();
+        this.updateSliderRange(mode);
+        this.updateSliderNames(mode);
         this.setSliders(...newVals);
       }
     },
@@ -34,11 +36,11 @@ $(document).ready(() => {
     },
 
     sliderVals: function () {
-      return this.colorSliders().map(sl => $(sl).val())
+      return this.colorSliders().map(sl => sl.value);
     },
 
     alphaVal: function () {
-      return $(this.aSlider).val() / 100
+      return this.aSlider.value / 100;
     },
 
     rgba: function() {
@@ -51,9 +53,9 @@ $(document).ready(() => {
     },
 
     setSliders: function (val1, val2, val3) {
-      this.colorSliders().forEach((sl, i) => {
-        $(sl).val(arguments[i]).trigger('change')
-      })
+      this.slider1.value = val1;
+      this.slider2.value = val2;
+      $(this.slider3).val(val3).trigger('change');
     },
 
     setSlidersWithRgbVals: function (val1, val2, val3) {
@@ -65,22 +67,24 @@ $(document).ready(() => {
       this.setSliders(...hsl);
     },
 
-    updateSliderRange() {
-      const bounds = (this.mode == 'rgba') ? [255, 255, 255] : [360, 100, 100];
+    updateSliderRange(mode) {
+      const bounds = (mode == 'rgba') ? [255, 255, 255] : [360, 100, 100];
       bounds.map((maxVal, index) => {
         const thisSlider = this[`slider${index + 1}`]
         $(thisSlider).attr('max', maxVal)
       })
     },
 
+    updateSliderNames(mode) {
+      mode.split("").forEach((char, index) => {
+        $(`#slider${index + 1}Label`).html(char.toUpperCase())
+      });
+    },
+
     updateAllDisplays() {
       // update color box
       $(this.colorBox).css(
         'background-color', `rgba(${this.rgba().join(', ')})`);
-      // update letter labels
-      this.mode.split("").forEach((char, index) => {
-        $(`#slider${index + 1}Label`).html(char.toUpperCase())
-      });
       // update number labels
       [...this.colorSliders(), this.aSlider].forEach(slider => {
         $(slider).siblings('.sliderVal').html($(slider).val());
@@ -133,39 +137,39 @@ $(document).ready(() => {
 
   }
 
-  function getMousePos(canvas, evt, zoomed=true) {
+  function getMousePos(canvas, evt, zoom) {
     const rect = canvas.getBoundingClientRect();
-    const zoom = (zoomed) ? $(canvas).css('zoom') : 1;
     return {
-      x: evt.clientX / zoom - rect.left,
-      y: evt.clientY / zoom - rect.top
+      x: Math.round(evt.clientX / zoom - rect.left),
+      y: Math.round(evt.clientY / zoom - rect.top)
     };
   }
 
   $('#palette').on('mousedown mousemove', function(e) {
-    if (e.buttons == 1) {
-      const mousePos = getMousePos(palette.canvas, e)
+    if (e.buttons == 1) { // if left mouse btn is down
+      const mousePos = getMousePos(palette.canvas, e, zoom)
       colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
     }
   })
   // Drawing
   $('#canvasContainer').mousedown(function (e) {
-    if (!e.ctrlKey && !e.metaKey) {
-      const mousePos = getMousePos(upper.canvas, e);
-      myStroke = new Stroke(upper, lower)
-        .setBrush(colorPicker.rgba(), size)
-        .start(mousePos.x, mousePos.y);
-      socket.emit('strokeStart', myStroke.getData()),
-      dragging = true;
-    }
-  }).mousemove(function (e) {
-    if (!dragging) { return; }
-    const mousePos = getMousePos(upper.canvas, e);
+    if (e.ctrlKey || e.metaKey) { return; } // Don't start drawing if trying to pan
+    const mousePos = getMousePos(upper.canvas, e, zoom);
+    myStroke = new Stroke(upper, base)
+      .setBrush(colorPicker.rgba(), size)
+      .start(mousePos.x, mousePos.y);
+    socket.emit('strokeStart', myStroke.getData()),
+    isPenDown = true;
+  })
+  .mousemove(function (e) {
+    if (!isPenDown) { return; }
+    const mousePos = getMousePos(upper.canvas, e, zoom);
     myStroke.update(mousePos.x, mousePos.y);
     socket.emit('strokeUpdate', mousePos)
-  }).on('mouseup mouseleave',() => {
-    if (!dragging) { return; }
-    dragging = false;
+  })
+  .on('mouseup mouseleave',() => {
+    if (!isPenDown) { return; }
+    isPenDown = false;
     myStroke.end();
     socket.emit('strokeEnd')
   });
@@ -180,22 +184,22 @@ $(document).ready(() => {
   })
 
   $('#sizeSlider').on("input change", function() {
-    size = $(this).val();
+    size = this.value;
   })
 
   $('#zoomSlider').on("input change", function() {
-    const zoomVal = $(this).val() / 100;
+    zoom = this.value / 100;
     const originalSize = { width: 1820, height: 1024 }
     $('#canvasContainer')
-    .width(originalSize.width * zoomVal )
-    .height(originalSize.height * zoomVal)
-    .children().css('zoom', zoomVal);
+    .width(originalSize.width * zoom )
+    .height(originalSize.height * zoom)
+    .children().css('zoom', zoom);
   })
 
 
   // Socket functionalities
   function generateNewCtx(id) {
-    return  $('#upper').clone()
+    return  $(upper.canvas).clone()
       .attr('id', `${id}`)
       .css('zoom', $('#lower').css('zoom'))
       .appendTo('#canvasContainer')
@@ -222,7 +226,7 @@ $(document).ready(() => {
 
   socket.on('otherStrokeStart', ({id, strokeData: {rgba, size, x, y}}) => {
     const otherGuy = ctxDict[id];
-    otherGuy.stroke = new Stroke(otherGuy.ctx, lower)
+    otherGuy.stroke = new Stroke(otherGuy.ctx, base)
       .setBrush(rgba, size)
       .start(x[0], y[0]);
   })
@@ -233,6 +237,20 @@ $(document).ready(() => {
 
   socket.on('otherStrokeEnd', ({id}) => {
     ctxDict[id].stroke.end()
+  })
+
+  socket.on('canvasShareRequest', () => {
+    socket.emit('canvasShare', {dataURI: lower.toDataURL('image/png', 0.5)});
+  })
+
+  socket.on('canvasData', ({data}) => {
+    // console.log("GOTTEM")
+    // console.log(data)
+    const img = new Image();
+    img.src = data;
+    img.onload = function() {
+      base.drawImage( this, 0, 0, base.canvas.width, base.canvas.height )
+    }
   })
 
 });
