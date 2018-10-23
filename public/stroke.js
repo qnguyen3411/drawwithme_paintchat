@@ -1,13 +1,8 @@
 class Stroke {
-
-  constructor(ctx, baseCtx) {
+  constructor(ctx) {
     this.ctx = ctx;
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
-    this.baseCtx = baseCtx;
-    this.baseCtx.lineCap = 'round';
-    this.baseCtx.lineJoin = 'round';
-
     this.rgba = [0, 0, 0, 1];
     this.size = 1;
     this.x = [];
@@ -16,22 +11,28 @@ class Stroke {
     this.minY;
     this.maxX;
     this.maxY;
+    this.finished = false;
   }
 
-  setBrush(rgba, size) {
+  setColor(rgba) {
+    const cssString = `rgba(${rgba.join(', ')})`;
     this.rgba = rgba;
+    this.ctx.strokeStyle = cssString;
+    this.ctx.fillStyle = cssString;
+    return this;
+  }
+
+  setSize(size) {
     this.size = size;
-    this.ctx.strokeStyle = `rgba(${rgba.join(', ')})`;
-    this.ctx.fillStyle = `rgba(${rgba.join(', ')})`;
     this.ctx.lineWidth = size;
     return this;
   }
 
   draw(ctx) {
-    ctx.beginPath(); 
-    if(this.x.length == 1) { // if drawing a dot
+    ctx.beginPath();
+    if (this.x.length === 1) { // if drawing a dot
       ctx.lineWidth = 1;
-      ctx.arc(this.x[0], this.y[0], this.size / 2, 0 , 2 * Math.PI, false);
+      ctx.arc(this.x[0], this.y[0], this.size / 2, 0, 2 * Math.PI);
       ctx.fill();
       ctx.lineWidth = this.size;
     } else {
@@ -45,7 +46,7 @@ class Stroke {
     return this;
   }
 
-  start(startX, startY) {
+  startAt(startX, startY) {
     this.x = [startX];
     this.y = [startY];
     this.minX = startX;
@@ -56,12 +57,13 @@ class Stroke {
     return this;
   }
 
-  update(newX, newY) {
-    if(this.minX > newX)       { this.minX = newX }
+  drawTo(newX, newY) {
+    // Keep track of max and min
+    if (this.minX > newX) { this.minX = newX }
     else if (this.maxX < newX) { this.maxX = newX };
-    if(this.minY > newY)       { this.minY = newY }
+    if (this.minY > newY) { this.minY = newY }
     else if (this.maxY < newY) { this.maxY = newY };
-    
+
     this.x.push(newX);
     this.y.push(newY);
     this.ctx.clearRect(...this.boundingRectPoints());
@@ -71,21 +73,37 @@ class Stroke {
 
   end() {
     this.ctx.clearRect(...this.boundingRectPoints());
-    const base = this.baseCtx
-    base.lineWidth = this.size;
-    base.strokeStyle = `rgba(${this.rgba.join(', ')})`;
-    base.fillStyle = `rgba(${this.rgba.join(', ')})`;
-    this.draw(base);
+    this.finished = true;
+    return this;
+  }
+
+  setOn(baseCtx) {
+    const saved = {
+      lineWidth : baseCtx.lineWidth,
+      lineCap : baseCtx.lineCap,
+      lineJoin : baseCtx.lineJoin,
+      fillStyle : baseCtx.fillStyle,
+      strokeStyle: baseCtx.strokeStyle
+    }
+    const keys = Object.keys(saved);
+    keys.forEach(key => {
+      baseCtx[key] = this.ctx[key];
+    });
+    this.draw(baseCtx);
+    keys.forEach(key => {
+      baseCtx[key] = saved[key];
+    });
     return this;
   }
 
   boundingRectPoints() {
-    const {width, height} = this.ctx.canvas
+    const { width, height } = this.ctx.canvas;
+    const radius = this.size / 2;
     return [
-      Math.max(this.minX - this.size / 2, 0),
-      Math.max(this.minY - this.size / 2, 0),
-      Math.min(this.maxX + this.size / 2, width),
-      Math.min(this.maxY + this.size / 2, height),
+      Math.max(this.minX - radius, 0),
+      Math.max(this.minY - radius - 5, 0), // Magic number alert
+      Math.min(this.maxX + radius, width),
+      Math.min(this.maxY + radius, height),
     ]
   }
 

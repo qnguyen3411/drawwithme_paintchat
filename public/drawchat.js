@@ -1,5 +1,181 @@
-// BUG: after a while alpha strokes loses their alpha
-document.addEventListener("DOMContentLoaded", () => {
+class Stroke {
+  constructor(ctx) {
+    this.ctx = ctx;
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
+    this.rgba = [0, 0, 0, 1];
+    this.size = 1;
+    this.x = [];
+    this.y = [];
+    this.minX;
+    this.minY;
+    this.maxX;
+    this.maxY;
+    this.finished = false;
+  }
+
+  setColor(rgba) {
+    const cssString = `rgba(${rgba.join(', ')})`;
+    this.rgba = rgba;
+    this.ctx.strokeStyle = cssString;
+    this.ctx.fillStyle = cssString;
+    return this;
+  }
+
+  setSize(size) {
+    this.size = size;
+    this.ctx.lineWidth = size;
+    return this;
+  }
+
+  draw(ctx) {
+    ctx.beginPath();
+    if (this.x.length === 1) { // if drawing a dot
+      ctx.lineWidth = 1;
+      ctx.arc(this.x[0], this.y[0], this.size / 2, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.lineWidth = this.size;
+    } else {
+      const len = this.x.length;
+      ctx.moveTo(this.x[0], this.y[0]);
+      for (let i = 1; i < len; i++) {
+        ctx.lineTo(this.x[i], this.y[i]);
+      }
+      ctx.stroke();
+    }
+    return this;
+  }
+
+  startAt(startX, startY) {
+    this.x = [startX];
+    this.y = [startY];
+    this.minX = startX;
+    this.maxX = startX;
+    this.minY = startY;
+    this.maxY = startY;
+    this.draw(this.ctx);
+    return this;
+  }
+
+  drawTo(newX, newY) {
+    // Keep track of max and min
+    if (this.minX > newX) { this.minX = newX }
+    else if (this.maxX < newX) { this.maxX = newX };
+    if (this.minY > newY) { this.minY = newY }
+    else if (this.maxY < newY) { this.maxY = newY };
+
+    this.x.push(newX);
+    this.y.push(newY);
+    this.ctx.clearRect(...this.boundingRectPoints());
+    this.draw(this.ctx);
+    return this;
+  }
+
+  end() {
+    this.ctx.clearRect(...this.boundingRectPoints());
+    this.finished = true;
+    return this;
+  }
+
+  setOn(baseCtx) {
+    const saved = {
+      lineWidth: baseCtx.lineWidth,
+      lineCap: baseCtx.lineCap,
+      lineJoin: baseCtx.lineJoin,
+      fillStyle: baseCtx.fillStyle,
+      strokeStyle: baseCtx.strokeStyle
+    }
+    const keys = Object.keys(saved);
+    keys.forEach(key => {
+      baseCtx[key] = this.ctx[key];
+    });
+    this.draw(baseCtx);
+    keys.forEach(key => {
+      baseCtx[key] = saved[key];
+    });
+    return this;
+  }
+
+  boundingRectPoints() {
+    const { width, height } = this.ctx.canvas;
+    const radius = this.size / 2;
+    return [
+      Math.max(this.minX - radius, 0),
+      Math.max(this.minY - radius - 5, 0), // Magic number alert
+      Math.min(this.maxX + radius, width),
+      Math.min(this.maxY + radius, height),
+    ]
+  }
+
+  getData() {
+    return {
+      rgba: this.rgba,
+      size: this.size,
+      x: this.x,
+      y: this.y
+    }
+  }
+}
+
+class Palette {
+
+  constructor(palCanvas, imgUrl) {
+    this.canvas = palCanvas;
+    this.palCtx = palCanvas.getContext('2d');
+    this.setPalImage(imgUrl)
+  }
+
+  setPalImage(url) {
+    const img = new Image()
+    img.setAttribute("src", url)
+    img.addEventListener("load", () => {
+      this.palCtx.drawImage(
+        img, 0, 0, this.palCtx.canvas.width, this.palCtx.canvas.height)
+    })
+  }
+
+  getColor(mousePos) {
+    return this.palCtx.getImageData(mousePos.x, mousePos.y, 1, 1).data;
+  }
+
+}
+
+class PanModule {
+  static setPannable(scroller) {
+    return new PanModule(scroller);
+  }
+
+  constructor(scroller) {
+    this.scroller = scroller;
+    this.ctrlDragging = false;
+    this.x;
+    this.y;
+    this.setEventListeners();
+  }
+
+  setEventListeners() {
+    this.scroller.onmousedown = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        this.x = e.clientX
+        this.y = e.clientY
+        this.ctrlDragging = true;
+      }
+    }
+    this.scroller.onmousemove = (e) => {
+      if ((e.ctrlKey || e.metaKey) && this.ctrlDragging) {
+        this.scroller.scrollTop += (this.y - e.clientY)
+        this.scroller.scrollLeft += (this.x - e.clientX)
+        this.x = e.clientX;
+        this.y = e.clientY;
+      }
+    }
+    const done = () => { this.ctrlDragging = false }
+    this.scroller.onmouseup = done;
+    this.scroller.onmouseleave = done;
+  }
+}
+
+(function activate() {
   let socket = io.connect('http://127.0.0.1:5000/');
   let ctxDict = {}
 
@@ -7,9 +183,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let upper = document.getElementById('upper').getContext('2d');
   let myStroke;
   let size = 1;
-  let palette = new Palette(document.querySelector('#palette canvas'), 'palette.png')
+  let palette = new Palette(document.querySelector('#palette canvas'), 'http://localhost:5000/palette.png')
   PanModule.setPannable(document.getElementById('canvasWindow'));
   const container = document.getElementById('canvasContainer')
+
+  const token = document.getElementById('token').innerHTML;
+  socket.emit('join', { token })
 
   let colorPicker = {
     slider1: document.getElementById('slider1'),
@@ -335,4 +514,4 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   });
 
-});
+})();

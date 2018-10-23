@@ -6,29 +6,29 @@ class PanModule {
   constructor(scroller) {
     this.scroller = scroller;
     this.ctrlDragging = false;
-    this.x = [];
-    this.y = [];
+    this.x;
+    this.y;
     this.setEventListeners();
   }
 
   setEventListeners() {
-    $(this.scroller)
-    .mousedown((e) => {
+    this.scroller.onmousedown = (e) => {
       if (e.ctrlKey || e.metaKey) {
-        this.x = [e.clientX]
-        this.y = [e.clientY]
+        this.x = e.clientX
+        this.y = e.clientY
         this.ctrlDragging = true;
       }
-    }).mousemove((e) => {
-      if ((e.ctrlKey || e.metaKey) && this.ctrlDragging){
-        $(this.scroller).scrollTop(
-          $(this.scroller).scrollTop() - e.clientY + this.y.pop())
-        $(this.scroller).scrollLeft(
-          $(this.scroller).scrollLeft() - e.clientX + this.x.pop())
-        this.x.push(e.clientX);
-        this.y.push(e.clientY);
+    }
+    this.scroller.onmousemove = (e) => {
+      if ((e.ctrlKey || e.metaKey) && this.ctrlDragging) {
+        this.scroller.scrollTop += (this.y - e.clientY)
+        this.scroller.scrollLeft += (this.x - e.clientX)
+        this.x = e.clientX;
+        this.y = e.clientY;
       }
-    }).on('mouseup mouseleave', () =>  this.ctrlDragging = false);
-   
+    }
+    const done = () => { this.ctrlDragging = false }
+    this.scroller.onmouseup = done;
+    this.scroller.onmouseleave = done;
   }
 }

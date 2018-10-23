@@ -10,8 +10,6 @@
     crossorigin=anonymous>
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
   <link rel="stylesheet" href="style.css">
-  <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
-    crossorigin="anonymous"></script>
   <script type="text/javascript" src="/socket.io/socket.io.js"></script>
 
   <script src="panModule.js"></script>
@@ -38,7 +36,7 @@
       </div>
       
       <div id="paletteSection" class="bg-dark">
-        <div id="rgb" class="slidersContainer bg-info mt-1">
+        <div id="" class="slidersContainer bg-info mt-1">
           <div class="col-10 mx-auto mt-2">
             <div class="row">
               <form oninput="display.value = 'Size: ' + sl.value">
@@ -57,16 +55,16 @@
         <div id="colorSliders" class="slidersContainer bg-light mt-1">
           <div class="d-flex mt-1 justify-content-between px-2">
             <div>
-              <button mode="hsla" class="colorModeBtn">HSL</button>
-              <button mode="rgba" class="colorModeBtn">RGB</button>
+              <button id="hsla" class="colorModeBtn">HSL</button>
+              <button id="rgba" class="colorModeBtn">RGB</button>
             </div>
             <div class="align-self-center" id="colorBox"></div>
           </div>
           <div class="col-12 mx-auto">
-          <label class="mx-1 row"><span id="slider1Label">R </span><input id="slider1" type="range" min="1" max="255" value="1" class="mx-1 col-9"> <small class="sliderVal">1</small></label>
-          <label class="mx-1 row"><span id="slider2Label">B </span><input id="slider2" type="range" min="1" max="255" value="1" class="mx-1 col-9"> <small class="sliderVal">1</small></label>
-          <label class="mx-1 row"><span id="slider3Label">G </span><input id="slider3" type="range" min="1" max="255" value="1" class="mx-1 col-9"> <small class="sliderVal">1</small></label>
-          <label class="mx-1 row"><span id="slider4Label">A </span><input id="slider4" type="range" min="1" max="100" value="100" class="mx-1 col-9"> <small class="sliderVal">100</small></label>
+          <label class="mx-1 row"><span id="slider1Label">R </span><input id="slider1" type="range" min="1" max="255" value="1" class="mx-1 col-9"><small class="sliderVal">1</small></label>
+          <label class="mx-1 row"><span id="slider2Label">G </span><input id="slider2" type="range" min="1" max="255" value="1" class="mx-1 col-9"><small class="sliderVal">1</small></label>
+          <label class="mx-1 row"><span id="slider3Label">B </span><input id="slider3" type="range" min="1" max="255" value="1" class="mx-1 col-9"><small class="sliderVal">1</small></label>
+          <label class="mx-1 row"><span id="slider4Label">A </span><input id="slider4" type="range" min="1" max="100" value="100" class="mx-1 col-9"><small class="sliderVal">100</small></label>
           </div>
         </div>
         <div id="palette">
