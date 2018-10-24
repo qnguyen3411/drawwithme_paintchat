@@ -175,21 +175,97 @@ class PanModule {
   }
 }
 
-(function activate() {
-  let socket = io.connect('http://127.0.0.1:5000/');
-  let ctxDict = {}
+class MoveBuffer {
+  constructor(maxSize) {
+    this.maxSize = maxSize;
+    this.buffer = [];
+  }
 
+  push(item) {
+    this.buffer.push(item);
+    if (this.buffer.length >= this.maxSize) {
+      return this.unload();
+    }
+    return null
+  }
+
+  unload() {
+    const temp = this.buffer;
+    this.buffer = [];
+    return temp;
+  }
+
+}
+
+class UserCursor {
+  constructor(cursor, text) {
+    this.cursor = cursor;
+    this.textNode = text;
+  }
+
+  setPosition(x, y) {
+    this.cursor.setAttribute('cx', x);
+    this.cursor.setAttribute('cy', y);
+    this.textNode.setAttribute('x', x);
+    this.textNode.setAttribute('y', y);
+    return this;
+  }
+
+  setSize(size) {
+    this.cursor.setAttribute('r', size / 2);
+    return this;
+  }
+
+  setUsername(str) {
+    this.textNode.innerHTML = str;
+    return this;
+  }
+  show() {
+    this.cursor.setAttribute('display', 'block');
+    this.textNode.setAttribute('display', 'block');
+    return this;
+  }
+
+  hide() {
+    this.cursor.setAttribute('display', 'none');
+    this.textNode.setAttribute('display', 'none');
+    return this;
+  }
+
+  clear() {
+    this.cursor.remove();
+    this.textNode.remove();
+  }
+}
+
+activate();
+
+function activate() {
+  // Socket logic
+  const socket = io.connect('http://127.0.0.1:5000/');
+  let ctxDict = {}
+  let myUsername = ""
+  let isHost = false;
+  const token = localStorage.getItem('drawwithme_user_token');
+  const roomId = document.getElementById('room').innerHTML;
+  const joinData = { token, roomId }
+
+  // Document elements
   let base = document.getElementById('lower').getContext('2d');
   let upper = document.getElementById('upper').getContext('2d');
+  const cursorScreen = document.getElementById('cursorScreen');
+  const selfCursor = document.getElementById('selfCursor');
+  const selfText = document.getElementById('selfText');
+  const container = document.getElementById('canvasContainer')
+  PanModule.setPannable(document.getElementById('canvasWindow'));
+  const palette = new Palette(
+    document.querySelector('#palette canvas'),
+    'http://localhost:5000/palette.png'
+  )
+
+  // Drawing
   let myStroke;
   let size = 1;
-  let palette = new Palette(document.querySelector('#palette canvas'), 'http://localhost:5000/palette.png')
-  PanModule.setPannable(document.getElementById('canvasWindow'));
-  const container = document.getElementById('canvasContainer')
-
-  const token = document.getElementById('token').innerHTML;
-  socket.emit('join', { token })
-
   let colorPicker = {
     slider1: document.getElementById('slider1'),
     slider2: document.getElementById('slider2'),
@@ -317,34 +393,17 @@ class PanModule {
 
   };
 
-  let actionBuffer = {
-    buffer: [],
-    maxSize: 3,
+  let paintBuffer = new MoveBuffer(3);
+  let cursorBuffer = new MoveBuffer(3);
 
-    push(item) {
-      this.buffer.push(item);
-      if (this.buffer.length >= this.maxSize) {
-        const p = Promise.resolve(this.unload());
-        return p;
-      }
-      return Promise.resolve(null);
-    },
+  const myCursor = new UserCursor(selfCursor, selfText)
 
-    unload() {
-      const temp = this.buffer;
-      this.buffer = [];
-      return temp;
-    }
-
-  }
-
+  // Helpers
   function onEvents(targets, events, handler) {
-    let len = targets.length;
-    if (!len) {
+    if (!Array.from(targets).length) {
       targets = [targets];
-      len = 1;
     }
-    for (let i = 0; i < len; i++) {
+    for (let i = 0; i < targets.length; i++) {
       events.forEach(event => {
         targets[i][event] = handler;
       });
@@ -359,6 +418,9 @@ class PanModule {
       y: Math.round(evt.clientY / zoom - rect.top)
     };
   };
+
+
+  // Bind event listeners
 
   onEvents(palette.canvas,
     ['onmousedown', 'onmousemove'],
@@ -381,6 +443,11 @@ class PanModule {
   };
 
   container.onmousemove = function (e) {
+    const mousePos = getMousePos(upper.canvas, e);
+    myCursor.setPosition(mousePos.x, mousePos.y);
+    let unloaded = cursorBuffer.push(mousePos);
+    if (unloaded) { socket.emit('cursorMovedOnCanvas', { mousePos, size }) }
+
     if (!myStroke || myStroke.finished) { return }
     if (e.buttons !== 1 || (e.ctrlKey || e.metaKey)) {
       myStroke.end().setOn(base);
@@ -388,24 +455,31 @@ class PanModule {
       socket.emit('strokeEnd');
       return;
     }
-    const mousePos = getMousePos(upper.canvas, e);
     myStroke.drawTo(mousePos.x, mousePos.y);
-    actionBuffer.push(mousePos).then(unloadedContent => {
-      if (unloadedContent) {
-        socket.emit('strokeUpdate', unloadedContent);
-      }
-    })
+    unloaded = null;
+    unloaded = paintBuffer.push(mousePos);
+    if (unloaded) { socket.emit('strokeUpdate',  unloaded ) }
+  
   };
 
+  container.onmouseenter = () => {
+    // selfCursor.setAttribute('display', 'block');
+    myCursor.show();
+  }
+
   onEvents(container,
-    ['onmouseup', 'onmouseleave'], () => {
+    ['onmouseup', 'onmouseleave'], (e) => {
+      
+      if (e.type == "mouseleave") {
+        // selfCursor.setAttribute('display', 'none');
+        myCursor.hide();
+      }
       if (!myStroke || myStroke.finished) { return }
       myStroke.end().setOn(base);
       myStroke = null;
-      socket.emit('strokeEnd', actionBuffer.unload());
+      socket.emit('strokeEnd', paintBuffer.unload());
     }
   );
-
   // Sliders and buttons
   onEvents(document.getElementsByClassName('colorModeBtn'),
     ['onclick'],
@@ -422,7 +496,10 @@ class PanModule {
 
   onEvents(document.getElementById('sizeSlider'),
     ['oninput', 'onchange'],
-    function handleResize() { size = this.value; });
+    function handleResize() { 
+      myCursor.setSize(this.value);
+      size = this.value; 
+    });
 
   onEvents(document.getElementById('zoomSlider'),
     ['oninput', 'onchange'],
@@ -430,16 +507,16 @@ class PanModule {
       const zoom = this.value / 100;
       const originalWidth = 1820;
       const originalHeight = 1024;
-      if (!container || !container.children) { return };
-      container.style.width = "" + originalWidth * zoom + "px";
-      container.style.height = "" + originalHeight * zoom + "px";
-      const len = container.children.length;
-      for (let i = 0; i < len; i++) {
-        container.children[i].style.zoom = zoom;
+      container.style.width =  `${originalWidth * zoompx}px`;
+      container.style.height = `${originalHeight * zoompx}px`;;
+      const elems = container.querySelectorAll('canvas, svg');
+      for (let i = 0; i < elems.length ; i++) {
+        elems[i].style.zoom = zoom;
       }
     });
 
   // SOCKETS
+  socket.emit('join', joinData);
 
   // When another user joins, generate another canvas that overlays the base
   // and give back the canvas context
@@ -452,23 +529,63 @@ class PanModule {
     return newCanvas.getContext('2d');
   };
 
+  function generateNewCursor(svg, id) {
+    const newCursor = selfCursor.cloneNode();
+    newCursor.id = "";
+    const newTextNode = selfText.cloneNode();
+    newTextNode.id = ""
+    svg.appendChild(newCursor);
+    svg.appendChild(newTextNode);
+    const newUserCursor = new UserCursor(newCursor, newTextNode)
+    return newUserCursor;
+  }
   // Upon joining, get the current list of users and generate canvases for them
+
   socket.on('otherUsers', (userDict) => {
+    console.log(userDict);
     Object.entries(userDict).forEach(([id, user]) => {
       user.ctx = generateNewCtx(base, id)
       user.stroke = null;
+      user.cursor = generateNewCursor(cursorScreen, id)
+        .setUsername(user.username)
+        .show();
       ctxDict[id] = user;
     });
+    console.log(userDict);
   });
 
-  socket.on('userJoined', ({ id }) => {
+
+  socket.on('userJoined', ({ id, username }) => {
     const ctx = generateNewCtx(upper, id);
-    ctxDict[id] = { username: "Guest", ctx: ctx, stroke: null };
+    const cursor = generateNewCursor(cursorScreen, id)
+      .setUsername(username)
+      .show();
+    ctxDict[id] = { username, ctx, stroke: null, cursor };
+    console.log(ctxDict)
+    if (isHost) {
+      socket.emit('canvasShare', { dataURI: lower.toDataURL('image/png', 0.7), target: id });
+    }
+  })
+
+  socket.on('setAsHost', () => {
+    isHost = true;
+  });
+
+  socket.on('setUsername', ({ username }) => {
+    console.log("MY USER NAME IS ", username)
+    myCursor.setUsername("");
+  })
+
+  socket.on('roomUnavailable', () => {
+    console.log("ROOM AINT THERE")
   })
 
   socket.on('userDisconnected', ({ id }) => {
-    const canvas = document.getElementById(id);
-    if (canvas) { canvas.remove() };
+    const user = ctxDict[id];
+    const canvas = user.ctx.canvas;
+    const cursor = user.cursor;
+    canvas.remove();
+    cursor.clear();
     delete ctxDict[id];
   })
 
@@ -514,4 +631,13 @@ class PanModule {
     };
   });
 
-})();
+  socket.on('otherCursorMovedOnCanvas' , ({id, newPoint: {mousePos: {x, y}, size}}) => {
+    const cursor = ctxDict[id].cursor;
+    cursor.setPosition(x, y).setSize(size / 2);
+    // cursor.setAttribute('cx', x);
+    // cursor.setAttribute('cy', y);
+    // cursor.setAttribute('r', size / 2);
+    // cursor.setAttribute('display', 'block');
+  })
+
+};
