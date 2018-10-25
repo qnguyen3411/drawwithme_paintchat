@@ -259,7 +259,7 @@ function activate() {
   const selfCursor = document.getElementById('selfCursor');
   const selfText = document.getElementById('selfText');
   const container = document.getElementById('canvasContainer')
- 
+
 
   // Drawing tools
   let myStroke;
@@ -454,8 +454,8 @@ function activate() {
     myStroke.drawTo(mousePos.x, mousePos.y);
     unloaded = null;
     unloaded = paintBuffer.push(mousePos);
-    if (unloaded) { socket.emit('strokeUpdate',  unloaded ) }
-  
+    if (unloaded) { socket.emit('strokeUpdate', unloaded) }
+
   };
 
   container.onmouseenter = () => {
@@ -464,7 +464,7 @@ function activate() {
 
   onEvents(container,
     ['onmouseup', 'onmouseleave'], (e) => {
-      
+
       if (e.type == "mouseleave") {
         myCursor.hide();
       }
@@ -503,9 +503,9 @@ function activate() {
 
   onEvents(document.getElementById('sizeSlider'),
     ['oninput', 'onchange'],
-    function handleResize() { 
+    function handleResize() {
       myCursor.setSize(this.value);
-      size = this.value; 
+      size = this.value;
     });
 
   onEvents(document.getElementById('zoomSlider'),
@@ -514,15 +514,15 @@ function activate() {
       const zoom = this.value / 100;
       const originalWidth = 1820;
       const originalHeight = 1024;
-      container.style.width =  `${originalWidth * zoompx}px`;
-      container.style.height = `${originalHeight * zoompx}px`;;
+      container.style.width = `${originalWidth * zoom}px`;
+      container.style.height = `${originalHeight * zoom}px`;;
       const elems = container.querySelectorAll('canvas, svg');
-      for (let i = 0; i < elems.length ; i++) {
+      for (let i = 0; i < elems.length; i++) {
         elems[i].style.zoom = zoom;
       }
     });
-    
-   // !SECTION 
+
+  // !SECTION 
 
   // SECTION SOCKETS
   socket.emit('join', joinData);
@@ -573,9 +573,25 @@ function activate() {
     }
   })
 
+  socket.on('roomInfo', data => {
+    const { host, expiresAt, tokens, users } = data;
+    Object.entries(users).forEach(([id, user]) => {
+      user.ctx = generateNewCtx(base, id)
+      user.stroke = null;
+      user.cursor = generateNewCursor(cursorScreen, id)
+        .setUsername(user.username)
+        .show();
+      ctxDict[id] = user;
+    });
+    console.log(tokens);
+    console.log(expiresAt);
+  })
+
   socket.on('setAsHost', () => {
     isHost = true;
   });
+
+
 
   socket.on('setUsername', ({ username }) => {
     myCursor.setUsername("");
@@ -612,11 +628,13 @@ function activate() {
   });
 
   socket.on('otherStrokeEnd', ({ id, newPoints }) => {
-    const len = newPoints.length;
-    const stroke = ctxDict[id].stroke;
-    for (let i = 0; i < len; i++) {
-      const { x, y } = newPoints[i];
-      stroke.drawTo(x, y)
+    if (newPoints) {
+      const len = newPoints.length;
+      const stroke = ctxDict[id].stroke;
+      for (let i = 0; i < len; i++) {
+        const { x, y } = newPoints[i];
+        stroke.drawTo(x, y)
+      }
     }
     stroke.end().setOn(base);
     ctxDict[id].stroke = null;
@@ -636,7 +654,7 @@ function activate() {
     };
   });
 
-  socket.on('otherCursorMovedOnCanvas' , ({id, newPoint: {mousePos: {x, y}, size}}) => {
+  socket.on('otherCursorMovedOnCanvas', ({ id, newPoint: { mousePos: { x, y }, size } }) => {
     const cursor = ctxDict[id].cursor;
     cursor.setPosition(x, y).setSize(size / 2);
   })

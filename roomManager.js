@@ -1,19 +1,20 @@
 const TOKEN_REFRESH_TIME = 1000 * 60 * 60 * 2;
 const TOKEN_TIME_VALUE = 1000 * 60 * 60 * 4;
 
-class RoomManager {
+module.exports = class RoomManager {
   constructor(createdAt, expiresAt) {
     const now = new Date().getTime();
     this.host = "";
     this.users = {};
     this.expiresAt = expiresAt;
     this.createdAt = createdAt;
+
     const consumedTokens = Math.round(
       (expiresAt - createdAt) / TOKEN_TIME_VALUE) - 1;
-
     this.remainingTokens = 5 - consumedTokens;
     this.availableTokens = Math.floor(
       (now - createdAt) / TOKEN_REFRESH_TIME) - consumedTokens;
+
     this.tokenTimer = this.newTokenTimer(createdAt, expiresAt);
     this.expireTimer = this.newExpireTimer(createdAt, expiresAt);
     this.onExpire = () => {};
@@ -25,6 +26,14 @@ class RoomManager {
       this.host = socketId;
     }
     this.users[socketId] = {username};
+  }
+
+  removeUser(socketId) {
+    delete this.users[socketId];
+    if (this.roomIsEmpty()) { return; }
+    if (socketId === this.host) {
+      this.host = Object.keys(this.users)[0];
+    }
   }
 
   newTokenTimer(createdAt, expiresAt) {
@@ -57,14 +66,6 @@ class RoomManager {
       this.expireTimer = this.newExpireTimer(createdAt, expiresAt);
     }, remainingTime);
     
-  }
-
-  removeUser(socketId) {
-    delete this.users[socketId];
-    if (this.roomIsEmpty()) { return; }
-    if (socketId === this.host) {
-      this.host = Object.keys(this.users)[0];
-    }
   }
 
   roomIsEmpty() {
