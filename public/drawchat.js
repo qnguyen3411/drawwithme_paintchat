@@ -241,8 +241,10 @@ class UserCursor {
 activate();
 
 function activate() {
+  //SECTION  Setup
+  const SOCKET_SERVER_URL = 'http://127.0.0.1:5000/'
   // Socket logic
-  const socket = io.connect('http://127.0.0.1:5000/');
+  const socket = io.connect(SOCKET_SERVER_URL);
   let ctxDict = {}
   let myUsername = ""
   let isHost = false;
@@ -257,13 +259,9 @@ function activate() {
   const selfCursor = document.getElementById('selfCursor');
   const selfText = document.getElementById('selfText');
   const container = document.getElementById('canvasContainer')
-  PanModule.setPannable(document.getElementById('canvasWindow'));
-  const palette = new Palette(
-    document.querySelector('#palette canvas'),
-    'http://localhost:5000/palette.png'
-  )
+ 
 
-  // Drawing
+  // Drawing tools
   let myStroke;
   let size = 1;
   let colorPicker = {
@@ -398,7 +396,15 @@ function activate() {
 
   const myCursor = new UserCursor(selfCursor, selfText)
 
-  // Helpers
+  PanModule.setPannable(document.getElementById('canvasWindow'));
+  const palette = new Palette(
+    document.querySelector('#palette canvas'),
+    SOCKET_SERVER_URL + '/palette.png'
+  )
+  //!SECTION 
+
+
+  //SECTION Helpers
   function onEvents(targets, events, handler) {
     if (!Array.from(targets).length) {
       targets = [targets];
@@ -418,20 +424,10 @@ function activate() {
       y: Math.round(evt.clientY / zoom - rect.top)
     };
   };
+  // !SECTION 
 
 
-  // Bind event listeners
-
-  onEvents(palette.canvas,
-    ['onmousedown', 'onmousemove'],
-    function (e) {
-      if (e.buttons === 1) { // if left mouse btn is down
-        const mousePos = getMousePos(this, e)
-        colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
-      }
-    });
-
-  // Drawing
+  // SECTION  Drawing
   container.onmousedown = function (e) {
     if (e.ctrlKey || e.metaKey) { return; } // Don't start drawing if trying to pan
     const mousePos = getMousePos(upper.canvas, e);
@@ -463,7 +459,6 @@ function activate() {
   };
 
   container.onmouseenter = () => {
-    // selfCursor.setAttribute('display', 'block');
     myCursor.show();
   }
 
@@ -471,7 +466,6 @@ function activate() {
     ['onmouseup', 'onmouseleave'], (e) => {
       
       if (e.type == "mouseleave") {
-        // selfCursor.setAttribute('display', 'none');
         myCursor.hide();
       }
       if (!myStroke || myStroke.finished) { return }
@@ -480,7 +474,20 @@ function activate() {
       socket.emit('strokeEnd', paintBuffer.unload());
     }
   );
-  // Sliders and buttons
+  // !SECTION 
+
+  // SECTION  Palette
+  onEvents(palette.canvas,
+    ['onmousedown', 'onmousemove'],
+    function (e) {
+      if (e.buttons === 1) { // if left mouse btn is down
+        const mousePos = getMousePos(this, e)
+        colorPicker.setSlidersWithRgbVals(...palette.getColor(mousePos))
+      }
+    });
+  // !SECTION 
+
+  // SECTION Sliders and buttons 
   onEvents(document.getElementsByClassName('colorModeBtn'),
     ['onclick'],
     function () {
@@ -514,8 +521,10 @@ function activate() {
         elems[i].style.zoom = zoom;
       }
     });
+    
+   // !SECTION 
 
-  // SOCKETS
+  // SECTION SOCKETS
   socket.emit('join', joinData);
 
   // When another user joins, generate another canvas that overlays the base
@@ -530,19 +539,18 @@ function activate() {
   };
 
   function generateNewCursor(svg, id) {
-    const newCursor = selfCursor.cloneNode();
-    newCursor.id = "";
+    const newCursorNode = selfCursor.cloneNode();
     const newTextNode = selfText.cloneNode();
+    newCursorNode.id = "";
     newTextNode.id = ""
-    svg.appendChild(newCursor);
+    svg.appendChild(newCursorNode);
     svg.appendChild(newTextNode);
-    const newUserCursor = new UserCursor(newCursor, newTextNode)
+    const newUserCursor = new UserCursor(newCursorNode, newTextNode)
     return newUserCursor;
   }
   // Upon joining, get the current list of users and generate canvases for them
 
   socket.on('otherUsers', (userDict) => {
-    console.log(userDict);
     Object.entries(userDict).forEach(([id, user]) => {
       user.ctx = generateNewCtx(base, id)
       user.stroke = null;
@@ -551,7 +559,6 @@ function activate() {
         .show();
       ctxDict[id] = user;
     });
-    console.log(userDict);
   });
 
 
@@ -561,7 +568,6 @@ function activate() {
       .setUsername(username)
       .show();
     ctxDict[id] = { username, ctx, stroke: null, cursor };
-    console.log(ctxDict)
     if (isHost) {
       socket.emit('canvasShare', { dataURI: lower.toDataURL('image/png', 0.7), target: id });
     }
@@ -572,7 +578,6 @@ function activate() {
   });
 
   socket.on('setUsername', ({ username }) => {
-    console.log("MY USER NAME IS ", username)
     myCursor.setUsername("");
   })
 
@@ -634,10 +639,6 @@ function activate() {
   socket.on('otherCursorMovedOnCanvas' , ({id, newPoint: {mousePos: {x, y}, size}}) => {
     const cursor = ctxDict[id].cursor;
     cursor.setPosition(x, y).setSize(size / 2);
-    // cursor.setAttribute('cx', x);
-    // cursor.setAttribute('cy', y);
-    // cursor.setAttribute('r', size / 2);
-    // cursor.setAttribute('display', 'block');
   })
-
+  // !SECTION 
 };
