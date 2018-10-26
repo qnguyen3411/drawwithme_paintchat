@@ -119,19 +119,15 @@ class Stroke {
 
 class Palette {
 
-  constructor(palCanvas, imgUrl) {
+  constructor(palCanvas, image) {
     this.canvas = palCanvas;
     this.palCtx = palCanvas.getContext('2d');
-    this.setPalImage(imgUrl)
+    this.setPalImage(image)
   }
 
-  setPalImage(url) {
-    const img = new Image()
-    img.setAttribute("src", url)
-    img.addEventListener("load", () => {
-      this.palCtx.drawImage(
-        img, 0, 0, this.palCtx.canvas.width, this.palCtx.canvas.height)
-    })
+  setPalImage(img) {
+    this.palCtx.drawImage(
+      img, 0, 0, this.palCtx.canvas.width, this.palCtx.canvas.height)
   }
 
   getColor(mousePos) {
@@ -235,6 +231,30 @@ class UserCursor {
   clear() {
     this.cursor.remove();
     this.textNode.remove();
+  }
+}
+
+class CountdownTimer {
+  constructor(display, endTime) {
+    const end = new Date(endTime).getTime()
+    const now = new Date().getTime();
+    this.remaining = end - now;
+    this.display = display;
+    this.start();
+  }
+
+  start() {
+    const timer = setInterval(() => {
+      if (this.remaining < 0) { clearInterval(timer)}
+      this.remaining -= 1000;
+      const hr = Math.round(this.remaining / (1000 * 60 * 60));
+      const min = Math.round(
+        (this.remaining % (1000 * 60 * 60)) / (1000 * 60));
+      const sec = Math.round(
+        (this.remaining % (1000 * 60)) / (1000));
+
+      this.display.innerHTML = `${hr}h ${min}m ${sec}s`
+    }, 1000)
   }
 }
 
@@ -398,9 +418,8 @@ function activate() {
 
   PanModule.setPannable(document.getElementById('canvasWindow'));
   const palette = new Palette(
-    document.querySelector('#palette canvas'),
-    SOCKET_SERVER_URL + '/palette.png'
-  )
+    document.querySelector('#palette canvas'), 
+    document.getElementById('palImg'))
   //!SECTION 
 
 
@@ -448,7 +467,7 @@ function activate() {
     if (e.buttons !== 1 || (e.ctrlKey || e.metaKey)) {
       myStroke.end().setOn(base);
       socket.emit('strokeEnd',
-      { newPoints: paintBuffer.unload(), strokeData: myStroke.getData() });
+        { newPoints: paintBuffer.unload(), strokeData: myStroke.getData() });
       myStroke = null;
       return;
     }
@@ -472,7 +491,7 @@ function activate() {
       if (!myStroke || myStroke.finished) { return }
       myStroke.end().setOn(base);
       socket.emit('strokeEnd',
-      { newPoints: paintBuffer.unload(), strokeData: myStroke.getData() });
+        { newPoints: paintBuffer.unload(), strokeData: myStroke.getData() });
       myStroke = null;
     }
   );
@@ -585,14 +604,13 @@ function activate() {
         .show();
       ctxDict[id] = user;
     });
-    console.log(tokens);
-    console.log(expiresAt);
+    const timer = new CountdownTimer(document.getElementById('timer'), expiresAt)
+    // console.log(expiresAt);
   })
 
   socket.on('setAsHost', () => {
     isHost = true;
   });
-
 
 
   socket.on('setUsername', ({ username }) => {
@@ -610,6 +628,19 @@ function activate() {
     canvas.remove();
     cursor.clear();
     delete ctxDict[id];
+  })
+
+  socket.on('strokeLog', ({ data }) => {
+    const strokeLog = JSON.parse('[' + data.slice(0, -2) + ']');
+    for (let i = 0; i < strokeLog.length; i++) {
+      const {rgba, size, x, y} = strokeLog[i];
+      const stroke = new Stroke(base)
+        .setColor(rgba)
+        .setSize(size)
+      stroke.x = x;
+      stroke.y = y;
+      stroke.draw(base);
+    }
   })
 
   socket.on('otherStrokeStart', ({ id, strokeData: { rgba, size, x, y } }) => {

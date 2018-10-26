@@ -1,8 +1,8 @@
+const fs = require('fs');
 const express = require('express');
 const mysql = require('mysql');
 const JWT = require('jsonwebtoken');
 const { JWT_SECRET, dbConfig } = require('./configurations')
-
 const RoomManager = require('./roomManager')
 
 const app = express()
@@ -23,6 +23,8 @@ connection.connect(function (err) {
 
 
 const io = require('socket.io')(server);
+
+// TODO: Room index shouldn't be stored in memory
 let rooms = {};
 
 io.on('connection', function (socket) {
@@ -30,6 +32,7 @@ io.on('connection', function (socket) {
   const socketId = socket.client.id;
   let roomKey;
 
+  // TODO: Decouple these database logic 
   function checkRoomStatus(connection, roomId) {
     return new Promise((resolve, reject) => {
       connection.query(
@@ -67,15 +70,18 @@ io.on('connection', function (socket) {
     })
   }
 
+    // Joining/ Disconnecting logic
+
   // Side effects: roomKey
   // Captured: connection
   socket.on('join', async data => {
     const roomId = data.roomId;
     roomKey = `${roomId}`;
     try {
-      const { createdAt, expiresAt } = await checkRoomStatus(connection, roomId);
+      // Database interaction
+      const { created_at : createdAt ,  expires_at: expiresAt } = await checkRoomStatus(connection, roomId);
       if (new Date().getTime() > expiresAt) {
-        throw "Room already expired on " + new Date(expiresAt);
+        throw new Error("Room already expired on " + new Date(expiresAt));
       }
 
       let username;
@@ -84,16 +90,25 @@ io.on('connection', function (socket) {
       if (tokenData) {
         username = tokenData.sub.username;
         id = tokenData.sub.id;
+        // Database interaction
         await recordJoinEvent(connection, id, roomId);
       }
       username = username || "Guest";
+
       if (!rooms[roomKey]) {
         const newRoom = new RoomManager(roomKey, createdAt, expiresAt);
-        newRoom.onNewToken = () => { io.to(roomKey).emit('newToken') };
+        newRoom.onNewToken = () => { io.to(roomKey).emit('newToken'); };
         newRoom.onExpire = () => { io.to(roomKey).emit('roomExpired'); }
         newRoom.host = socketId;
         socket.emit('setAsHost');
         rooms[roomKey] = newRoom;
+      }
+
+      if (rooms[roomKey].roomIsEmpty()) {
+        const strokeLogPath = __dirname + `/../strokeLogs/${roomKey}.txt`;
+        fs.readFile(strokeLogPath, 'utf8', (err, data) => {
+          socket.emit('strokeLog', { data });
+        })
       }
 
       socket.emit('roomInfo', rooms[roomKey].getRoomInfo());
@@ -122,6 +137,9 @@ io.on('connection', function (socket) {
     rooms[roomKey].removeUser(socketId);
   })
 
+
+  // Drawing logic
+
   socket.on('strokeStart', data => {
     const emitData = { id: socketId, strokeData: data }
     socket.broadcast.to(roomKey).emit('otherStrokeStart', emitData)
@@ -137,7 +155,7 @@ io.on('connection', function (socket) {
     const emitData = { id: socketId, newPoints: data.newPoints }
     socket.broadcast.to(roomKey).emit('otherStrokeEnd', emitData)
   })
-  // Expected: { mousepos: {x, y}, size }
+
   socket.on('cursorMovedOnCanvas', data => {
     const emitData = { id: socketId, newPoint: data }
     socket.broadcast.to(roomKey).emit('otherCursorMovedOnCanvas', emitData);

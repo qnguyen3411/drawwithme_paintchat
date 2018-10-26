@@ -14,9 +14,11 @@ module.exports = class RoomManager {
     this.roomKey = roomKey;
     this.expiresAt = expiresAt;
     this.createdAt = createdAt;
+    
     const strokeLogPath = __dirname + `/../strokeLogs/${roomKey}.txt`;
     this.stream = fs.createWriteStream( strokeLogPath, {flags: 'a', mode: 777} );
     fs.chmodSync(strokeLogPath, '755');
+    
     const consumedTokens = Math.round(
       (expiresAt - createdAt) / TOKEN_TIME_VALUE) - 1;
     this.remainingTokens = 5 - consumedTokens;
