@@ -1,14 +1,22 @@
+const fs = require('fs');
+
 const TOKEN_REFRESH_TIME = 1000 * 60 * 60 * 2;
 const TOKEN_TIME_VALUE = 1000 * 60 * 60 * 4;
 
+
+
+
 module.exports = class RoomManager {
-  constructor(createdAt, expiresAt) {
+  constructor(roomKey, createdAt, expiresAt) {
     const now = new Date().getTime();
     this.host = "";
     this.users = {};
+    this.roomKey = roomKey;
     this.expiresAt = expiresAt;
     this.createdAt = createdAt;
-
+    const strokeLogPath = __dirname + `/../strokeLogs/${roomKey}.txt`;
+    this.stream = fs.createWriteStream( strokeLogPath, {flags: 'a', mode: 777} );
+    fs.chmodSync(strokeLogPath, '755');
     const consumedTokens = Math.round(
       (expiresAt - createdAt) / TOKEN_TIME_VALUE) - 1;
     this.remainingTokens = 5 - consumedTokens;
@@ -61,6 +69,7 @@ module.exports = class RoomManager {
       const now = new Date().getTime();
       if (this.expiresAt - now < 10000) {
         this.onExpire();
+        this.stream.end();
         return;
       }
       this.expireTimer = this.newExpireTimer(createdAt, expiresAt);
@@ -69,7 +78,7 @@ module.exports = class RoomManager {
   }
 
   roomIsEmpty() {
-    return !Object.keys(this.users).length
+    return !Object.keys(this.users).length;
   }
   
   getRoomInfo() {
@@ -79,6 +88,10 @@ module.exports = class RoomManager {
       tokens: this.availableTokens,
       users: this.users,
     }
+  }
+
+  record(stroke) {
+    this.stream.write(JSON.stringify(stroke) + ',\n');
   }
 
 }

@@ -5,11 +5,11 @@ const { JWT_SECRET, dbConfig } = require('./configurations')
 
 const RoomManager = require('./roomManager')
 
-const ONE_DAY_IN_MS = 1000 * 60 * 60 * 24;
-
-
 const app = express()
 app.use(express.static(__dirname + '/./public'));
+const server = app.listen(5000, () => {
+  console.log("LISTENING")
+})
 
 const connection = mysql.createConnection(dbConfig);
 connection.connect(function (err) {
@@ -20,9 +20,7 @@ connection.connect(function (err) {
   console.log('connected as id ' + connection.threadId);
 });
 
-const server = app.listen(5000, () => {
-  console.log("LISTENING")
-})
+
 
 const io = require('socket.io')(server);
 let rooms = {};
@@ -62,76 +60,57 @@ io.on('connection', function (socket) {
         + ' VALUES (?,?, NOW(), NOW())'
         + ' ON DUPLICATE KEY UPDATE updated_at = NOW()',
         [roomId, userId],
-        function (error, results, fields) {
+        function (error, results) {
           if (error) { reject(error) }
           resolve(results);
         })
     })
   }
 
-
-  socket.on('join', data => {
+  // Side effects: roomKey
+  // Captured: connection
+  socket.on('join', async data => {
     const roomId = data.roomId;
-    const token = data.token;
-    let username;
     roomKey = `${roomId}`;
-    let createdAt;
-    let expiresAt;
+    try {
+      const { createdAt, expiresAt } = await checkRoomStatus(connection, roomId);
+      if (new Date().getTime() > expiresAt) {
+        throw "Room already expired on " + new Date(expiresAt);
+      }
 
-    checkRoomStatus(connection, roomId)
-      .then(data => {
-        const { is_active } = data;
-        createdAt = data.created_at;
-        expiresAt = data.expires_at;
-        if (!is_active) {
-          return Promise.reject(`ROOM ${roomId} NOT AVAIABLE`)
-        }
-        return decodeToken(token)
+      let username;
+      let id;
+      const tokenData = await decodeToken(data.token);
+      if (tokenData) {
+        username = tokenData.sub.username;
+        id = tokenData.sub.id;
+        await recordJoinEvent(connection, id, roomId);
+      }
+      username = username || "Guest";
+      if (!rooms[roomKey]) {
+        const newRoom = new RoomManager(roomKey, createdAt, expiresAt);
+        newRoom.onNewToken = () => { io.to(roomKey).emit('newToken') };
+        newRoom.onExpire = () => { io.to(roomKey).emit('roomExpired'); }
+        newRoom.host = socketId;
+        socket.emit('setAsHost');
+        rooms[roomKey] = newRoom;
+      }
 
-      }).then(result => {
-        // If failed to decode token, don't record join and set user as guest
-        if (!result) { return Promise.resolve(); }
-        username = result.sub.username;
-        const id = result.sub.id;
-        return recordJoinEvent(connection, id, roomId);
+      socket.emit('roomInfo', rooms[roomKey].getRoomInfo());
+      socket.broadcast.to(roomKey)
+        .emit('userJoined', { id: socketId, username });
 
-      }).then(() => {
-        username = username || "Guest";
-        if (!rooms[roomKey]) {
-          const newRoom = new RoomManager(createdAt, expiresAt);
-          newRoom.onNewToken = () => { io.to(roomKey).emit('newToken') };
-          newRoom.onExpire = () => {
-            io.to(roomKey).emit('roomExpired');
-          }
-          newRoom.host = socketId;
-          socket.emit('setAsHost');
-          rooms[roomKey] = newRoom;
-        }
+      socket.join(roomKey);
+      rooms[roomKey].addUser(socketId, username)
+      socket.emit('setUsername', { username });
 
-        // Give new user a current list of other users
-        let roomInfo = rooms[roomKey].getRoomInfo();
-        socket.emit('roomInfo', roomInfo);
-
-        // Tell other users we have joined
-        socket.broadcast.to(roomKey)
-          .emit('userJoined', { id: socketId, username });
-
-        // Join
-        socket.join(roomKey);
-        rooms[roomKey].addUser(socketId, username)
-        socket.emit('setUsername', { username });
-
-        console.log(rooms)
-
-      }).catch(err => {
-        console.log(err);
-        socket.emit('roomUnavailable');
-        socket.disconnect();
-        return;
-      })
-
+    } catch (error) {
+      console.error(error);
+      socket.emit('roomUnavailable');
+      socket.disconnect();
+      return;
+    }
   })
-
 
   socket.on('canvasShare', data => {
     io.to(data.target).emit('canvasData', { data: data.dataURI });
@@ -144,24 +123,26 @@ io.on('connection', function (socket) {
   })
 
   socket.on('strokeStart', data => {
-    socket.broadcast.to(roomKey).emit('otherStrokeStart',
-      { id: socketId, strokeData: data })
+    const emitData = { id: socketId, strokeData: data }
+    socket.broadcast.to(roomKey).emit('otherStrokeStart', emitData)
   })
 
   socket.on('strokeUpdate', data => {
-    socket.broadcast.to(roomKey).emit('otherStrokeUpdate',
-      { id: socketId, newPoints: data })
+    const emitData = { id: socketId, newPoints: data };
+    socket.broadcast.to(roomKey).emit('otherStrokeUpdate', emitData)
   })
 
   socket.on('strokeEnd', data => {
-    socket.broadcast.to(roomKey)
-      .emit('otherStrokeEnd', { id: socketId, newPoints: data })
+    rooms[roomKey].record(data.strokeData);
+    const emitData = { id: socketId, newPoints: data.newPoints }
+    socket.broadcast.to(roomKey).emit('otherStrokeEnd', emitData)
   })
   // Expected: { mousepos: {x, y}, size }
   socket.on('cursorMovedOnCanvas', data => {
-    socket.broadcast.to(roomKey)
-      .emit('otherCursorMovedOnCanvas', { id: socketId, newPoint: data });
+    const emitData = { id: socketId, newPoint: data }
+    socket.broadcast.to(roomKey).emit('otherCursorMovedOnCanvas', emitData);
   })
 
 })
+
 

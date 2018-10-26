@@ -447,8 +447,9 @@ function activate() {
     if (!myStroke || myStroke.finished) { return }
     if (e.buttons !== 1 || (e.ctrlKey || e.metaKey)) {
       myStroke.end().setOn(base);
+      socket.emit('strokeEnd',
+      { newPoints: paintBuffer.unload(), strokeData: myStroke.getData() });
       myStroke = null;
-      socket.emit('strokeEnd');
       return;
     }
     myStroke.drawTo(mousePos.x, mousePos.y);
@@ -470,8 +471,9 @@ function activate() {
       }
       if (!myStroke || myStroke.finished) { return }
       myStroke.end().setOn(base);
+      socket.emit('strokeEnd',
+      { newPoints: paintBuffer.unload(), strokeData: myStroke.getData() });
       myStroke = null;
-      socket.emit('strokeEnd', paintBuffer.unload());
     }
   );
   // !SECTION 
@@ -628,9 +630,9 @@ function activate() {
   });
 
   socket.on('otherStrokeEnd', ({ id, newPoints }) => {
+    const stroke = ctxDict[id].stroke;
     if (newPoints) {
       const len = newPoints.length;
-      const stroke = ctxDict[id].stroke;
       for (let i = 0; i < len; i++) {
         const { x, y } = newPoints[i];
         stroke.drawTo(x, y)
@@ -641,7 +643,8 @@ function activate() {
   });
 
   socket.on('canvasShareRequest', () => {
-    socket.emit('canvasShare', { dataURI: lower.toDataURL('image/png', 0.7) });
+    socket.emit('canvasShare',
+      { dataURI: lower.toDataURL('image/png', 0.7) });
   });
 
   socket.on('canvasData', ({ data }) => {
@@ -654,9 +657,10 @@ function activate() {
     };
   });
 
-  socket.on('otherCursorMovedOnCanvas', ({ id, newPoint: { mousePos: { x, y }, size } }) => {
-    const cursor = ctxDict[id].cursor;
-    cursor.setPosition(x, y).setSize(size / 2);
-  })
+  socket.on('otherCursorMovedOnCanvas',
+    ({ id, newPoint: { mousePos: { x, y }, size } }) => {
+      const cursor = ctxDict[id].cursor;
+      cursor.setPosition(x, y).setSize(size / 2);
+    })
   // !SECTION 
 };
