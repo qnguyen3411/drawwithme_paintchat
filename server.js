@@ -6,7 +6,6 @@ const { JWT_SECRET, dbConfig } = require('./configurations')
 const RoomManager = require('./roomManager')
 
 const app = express()
-app.use(express.static(__dirname + '/./public'));
 const server = app.listen(5000, () => {
   console.log("LISTENING")
 })
@@ -21,7 +20,6 @@ connection.connect(function (err) {
 });
 
 
-
 const io = require('socket.io')(server);
 
 // TODO: Room index shouldn't be stored in memory
@@ -32,44 +30,7 @@ io.on('connection', function (socket) {
   const socketId = socket.client.id;
   let roomKey;
 
-  // TODO: Decouple these database logic 
-  function checkRoomStatus(connection, roomId) {
-    return new Promise((resolve, reject) => {
-      connection.query(
-        'SELECT created_at, expires_at, is_active FROM rooms WHERE id = ?',
-        [roomId],
-        function (error, results, fields) {
-          if (error) { reject(error) };
-          if (!results) { resolve(false) };
-          resolve(results[0]);
-        })
-    });
-  }
-
-  function decodeToken(token) {
-    // Decode token wirhout catching
-    return new Promise(function (resolve, reject) {
-      JWT.verify(token, JWT_SECRET, function (err, decoded) {
-        if (err) resolve(null);
-        resolve(decoded);
-      })
-    })
-  }
-
-  function recordJoinEvent(connection, userId, roomId) {
-    return new Promise((resolve, reject) => {
-      connection.query(
-        'INSERT INTO users_rooms (room_id, user_id, created_at, updated_at)'
-        + ' VALUES (?,?, NOW(), NOW())'
-        + ' ON DUPLICATE KEY UPDATE updated_at = NOW()',
-        [roomId, userId],
-        function (error, results) {
-          if (error) { reject(error) }
-          resolve(results);
-        })
-    })
-  }
-
+  
     // Joining/ Disconnecting logic
 
   // Side effects: roomKey
@@ -127,14 +88,57 @@ io.on('connection', function (socket) {
     }
   })
 
+  function checkRoomStatus(connection, roomId) {
+    return new Promise((resolve, reject) => {
+      connection.query(
+        'SELECT created_at, expires_at, is_active FROM rooms WHERE id = ?',
+        [roomId],
+        function (error, results, fields) {
+          if (error) { reject(error) };
+          if (!results) { resolve(false) };
+          resolve(results[0]);
+        })
+    });
+  }
+
+  function decodeToken(token) {
+    // Decode token wirhout catching
+    return new Promise(function (resolve, reject) {
+      JWT.verify(token, JWT_SECRET, function (err, decoded) {
+        if (err) resolve(null);
+        resolve(decoded);
+      })
+    })
+  }
+
+  function recordJoinEvent(connection, userId, roomId) {
+    return new Promise((resolve, reject) => {
+      connection.query(
+        'INSERT INTO users_rooms (room_id, user_id, created_at, updated_at)'
+        + ' VALUES (?,?, NOW(), NOW())'
+        + ' ON DUPLICATE KEY UPDATE updated_at = NOW()',
+        [roomId, userId],
+        function (error, results) {
+          if (error) { reject(error) }
+          resolve(results);
+        })
+    })
+  }
+
+
   socket.on('canvasShare', data => {
     io.to(data.target).emit('canvasData', { data: data.dataURI });
+  })
+
+  socket.on('exitClicked', () => {
+    socket.disconnect();
   })
 
   socket.on('disconnect', () => {
     socket.broadcast.to(roomKey).emit('userDisconnected', { id: socketId });
     if (!rooms[roomKey]) { return };
     rooms[roomKey].removeUser(socketId);
+    io.to(rooms[roomKey].host).emit('setAsHost');
   })
 
 

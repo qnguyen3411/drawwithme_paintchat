@@ -17,7 +17,9 @@ module.exports = class RoomManager {
     
     const strokeLogPath = __dirname + `/../strokeLogs/${roomKey}.txt`;
     this.stream = fs.createWriteStream( strokeLogPath, {flags: 'a', mode: 777} );
-    fs.chmodSync(strokeLogPath, '755');
+    this.stream.on('open', () => {
+      fs.chmodSync(strokeLogPath, '755');
+    })
     
     const consumedTokens = Math.round(
       (expiresAt - createdAt) / TOKEN_TIME_VALUE) - 1;
@@ -39,7 +41,10 @@ module.exports = class RoomManager {
   }
 
   removeUser(socketId) {
+    console.log(this.users)
+    console.log("DELETING ", socketId)
     delete this.users[socketId];
+    console.log(this.users)
     if (this.roomIsEmpty()) { return; }
     if (socketId === this.host) {
       this.host = Object.keys(this.users)[0];
@@ -49,7 +54,7 @@ module.exports = class RoomManager {
   newTokenTimer(createdAt, expiresAt) {
     const now = new Date().getTime();
     if (createdAt > now) throw "Creation date is in the future";
-    if (expiresAt < now) throw "Expiration date is in the past";
+    if (expiresAt < now) { throw new Error("Room already expired on " + new Date(expiresAt)) }
     const timeSinceLastToken = (now - createdAt) % TOKEN_REFRESH_TIME;
     const timeTilNextToken = TOKEN_REFRESH_TIME - timeSinceLastToken;
     return setTimeout(() => {
