@@ -15,11 +15,13 @@ io.on('connection', function (socket) {
 
   socket.on('join', async function (data) {
     try {
-
       const roomId = data.room;
       const room = await hubServer.getRoomInfo(roomId);
       if (!room) { throw new Error('Room not found') };
       let user = await hubServer.getUserIdentity(data.token);
+      if (user) { 
+        hubServer.recordJoin(roomId, user.id) 
+      };
       user = user || { username: getAnonName() };
 
       socket.join(roomId);
@@ -27,7 +29,6 @@ io.on('connection', function (socket) {
       socket.emit('assignedUsername', { username: user.username });
       socket.broadcast.to(roomId).emit('peerJoined',
         { username: user.username, id: socket.client.id })
-
 
       attachSocketEventListeners({ socket, roomId });
 
@@ -68,9 +69,9 @@ io.on('connection', function (socket) {
 
       // Apparently this side knows that data is just a username str
       socket.on('shareInfoWithPeer', ({ id, data }) => {
-        socket.to(id).emit('peerInfoShared', { 
-          id: socket.client.id, 
-          username: data 
+        socket.to(id).emit('peerInfoShared', {
+          id: socket.client.id,
+          username: data
         });
       })
 
@@ -84,8 +85,6 @@ io.on('connection', function (socket) {
           })
       })
 
-
-
       socket.on('disconnect', () => {
         socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
       })
@@ -93,7 +92,7 @@ io.on('connection', function (socket) {
 
     function attachChatEventListeners({ socket, roomId }) {
       socket.on('chatMessageSent', ({ data }) => {
-        socket.broadcast.to(currRoom)
+        socket.broadcast.to(roomId)
           .emit('peersChatMessageSent', { id: socket.client.id, data });
       })
     }
@@ -102,44 +101,8 @@ io.on('connection', function (socket) {
       return "anon_" + Math.random().toString(36).substring(7);
     }
 
-
   })
-
-
-
-  // socket.on('disconnect', () => {
-  //   socket.broadcast.to(currRoom).emit('peerLeft', { id: socket.client.id });
-  //   if (rooms[currRoom] && rooms[currRoom][socket.client.id]) {
-  //     delete rooms[currRoom][socket.client.id];
-  //   }
-  // })
-
-  // socket.on('tokenConsumed', () => {
-  //   hubServer.consumeTimeToken(currRoom)
-  //     .then(data => {
-  //       io.to(currRoom).emit('tokenConsumed', data)
-  //     })
-  //     .catch(err => {
-  //       console.log(err)
-  //     })
-  // })
-
-
 
 })
 
 
-// On join:
-// part a
-// authenticate room
-// identify user
-
-// part b
-// Pick random client from room
-// request canvas data
-// or fetch strokelog?
-// request user list
-
-
-// part c
-// attach all other event listeners
