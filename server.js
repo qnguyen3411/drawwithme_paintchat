@@ -10,96 +10,121 @@ const server = app.listen(5000, () => {
 
 const io = require('socket.io')(server);
 // TODO: downgrade to lower socket version
-let rooms = {};
 
 io.on('connection', function (socket) {
 
-  let currRoom;
-
   socket.on('join', async function (data) {
     try {
-      // Authenticate join info
+
       const roomId = data.room;
       const room = await hubServer.getRoomInfo(roomId);
-      if (!room) { throw new Error('Room not found') }
-
-      socket.emit('roomInfo', room);
-
-      currRoom = roomId;
-      rooms[roomId] = rooms[roomId] || {};
-      // TODO: maybe is possible to have another socket give userlist to us
-      socket.emit('userList', rooms[roomId]);
+      if (!room) { throw new Error('Room not found') };
       let user = await hubServer.getUserIdentity(data.token);
-      if (user) {
-        // TODO: implement recordJoin
-        hubServer.recordJoin(user.id, roomId);
-      } else {
-        user = {username: getAnonName()};
-      }
+      user = user || { username: getAnonName() };
 
-
-      rooms[roomId][socket.client.id] = { username: user.username };
+      socket.join(roomId);
+      socket.emit('roomInfo', room)
       socket.emit('assignedUsername', { username: user.username });
-      socket.broadcast.to(currRoom).emit('peerJoined', {
-         username: user.username, id: socket.client.id 
-        });
+      socket.broadcast.to(roomId).emit('peerJoined',
+        { username: user.username, id: socket.client.id })
 
-      socket.join(currRoom);
-      
+
+      attachSocketEventListeners({ socket, roomId });
+
     } catch (err) {
-      forceDisconnect()
+      socket.emit('forceDisconnect');
+      socket.disconnect();
       console.log(err)
     }
-  })
 
-
-
-  socket.on('disconnect', () => {
-    socket.broadcast.to(currRoom).emit('peerLeft', { id: socket.client.id });
-    if (rooms[currRoom] && rooms[currRoom][socket.client.id]) {
-      delete rooms[currRoom][socket.client.id];
+    function attachSocketEventListeners({ socket, roomId }) {
+      attachCanvasEventListeners({ socket, roomId });
+      attachRoomEventListenters({ socket, roomId });
+      attachChatEventListeners({ socket, roomId });
     }
-  })
 
-  socket.on('tokenConsumed', () => {
-    hubServer.consumeTimeToken(currRoom)
-      .then(data => {
-        io.to(currRoom).emit('tokenConsumed', data)
+    function attachCanvasEventListeners({ socket, roomId }) {
+      const id = socket.client.id
+      socket.on('cursorSizeUpdate', ({ data }) => {
+        socket.broadcast.to(roomId)
+          .emit('peersCursorSizeUpdate', { id, data });
       })
-      .catch(err => {
-        console.log(err)
+
+      socket.on('mousePosUpdate', ({ data }) => {
+        socket.broadcast.to(roomId)
+          .emit('peersMousePosUpdate', { id, data });
       })
+      socket.on('canvasActionStart', ({ data }) => {
+        socket.broadcast.to(roomId)
+          .emit('peersCanvasActionStart', { id, data });
+      })
+      socket.on('canvasActionEnd', ({ data }) => {
+        socket.broadcast.to(roomId)
+          .emit('peersCanvasActionEnd', { id, data });
+      })
+    }
+
+    function attachRoomEventListenters({ socket, roomId }) {
+
+      // Apparently this side knows that data is just a username str
+      socket.on('shareInfoWithPeer', ({ id, data }) => {
+        socket.to(id).emit('peerInfoShared', { 
+          id: socket.client.id, 
+          username: data 
+        });
+      })
+
+      socket.on('tokenConsumed', () => {
+        hubServer.consumeTimeToken(roomId)
+          .then(data => {
+            io.to(roomId).emit('tokenConsumed', data)
+          })
+          .catch(err => {
+            throw err;
+          })
+      })
+
+
+
+      socket.on('disconnect', () => {
+        socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
+      })
+    }
+
+    function attachChatEventListeners({ socket, roomId }) {
+      socket.on('chatMessageSent', ({ data }) => {
+        socket.broadcast.to(currRoom)
+          .emit('peersChatMessageSent', { id: socket.client.id, data });
+      })
+    }
+
+    function getAnonName() {
+      return "anon_" + Math.random().toString(36).substring(7);
+    }
+
+
   })
 
 
-  socket.on('cursorSizeUpdate', ({ data }) => {
-    socket.broadcast.to(currRoom).emit('peersCursorSizeUpdate', { id: socket.client.id, data });
-  })
 
-  socket.on('mousePosUpdate', ({ data }) => {
-    socket.broadcast.to(currRoom).emit('peersMousePosUpdate', { id: socket.client.id, data });
-  })
-  socket.on('canvasActionStart', ({ data }) => {
-    socket.broadcast.to(currRoom).emit('peersCanvasActionStart', { id: socket.client.id, data });
-  })
-  socket.on('canvasActionEnd', ({ data }) => {
-    socket.broadcast.to(currRoom).emit('peersCanvasActionEnd', { id: socket.client.id, data });
-  })
+  // socket.on('disconnect', () => {
+  //   socket.broadcast.to(currRoom).emit('peerLeft', { id: socket.client.id });
+  //   if (rooms[currRoom] && rooms[currRoom][socket.client.id]) {
+  //     delete rooms[currRoom][socket.client.id];
+  //   }
+  // })
+
+  // socket.on('tokenConsumed', () => {
+  //   hubServer.consumeTimeToken(currRoom)
+  //     .then(data => {
+  //       io.to(currRoom).emit('tokenConsumed', data)
+  //     })
+  //     .catch(err => {
+  //       console.log(err)
+  //     })
+  // })
 
 
-  socket.on('chatMessageSent', ({ data }) => {
-    socket.broadcast.to(currRoom).emit('peersChatMessageSent', { id: socket.client.id, data });
-  })
-
-
-  function forceDisconnect() {
-    socket.emit('forceDisconnect');
-    socket.disconnect();
-  }
-
-  function getAnonName() {
-    return "anon_" + Math.random().toString(36).substring(7);
-  }
 
 })
 
