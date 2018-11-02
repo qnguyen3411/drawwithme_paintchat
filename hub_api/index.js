@@ -11,7 +11,7 @@ module.exports = {
 
   },
 
-  consumeTimeToken(roomId) {
+  async consumeTimeToken(roomId) {
     return instance.get(`/rooms/token/${roomId}`)
       .then(({ status, data }) => {
         if (status !== 200) { return Promise.reject('Server response error'); }

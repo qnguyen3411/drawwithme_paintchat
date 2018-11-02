@@ -2,9 +2,13 @@ const express = require('express');
 
 const hubServer = require('./hub_api');
 
-const app = express()
-const server = app.listen(5000, () => {
-  console.log("LISTENING")
+const app = express();
+const server = app.listen(5000);
+
+// Set up stroke recorder
+const recorderSocket = require('socket.io-client')('http://localhost:9000');
+recorderSocket.on('connect', function () {
+  console.log("CONNECTED WITH SOCKET SERVER")
 })
 
 
@@ -17,10 +21,9 @@ io.on('connection', function (socket) {
     try {
       const roomId = data.room;
       const room = await hubServer.getRoomInfo(roomId);
-      if (!room) { throw new Error('Room not found') };
       let user = await hubServer.getUserIdentity(data.token);
-      if (user) { 
-        hubServer.recordJoin(roomId, user.id) 
+      if (user) {
+        hubServer.recordJoin(roomId, user.id)
       };
       user = user || { username: getAnonName() };
 
@@ -35,7 +38,7 @@ io.on('connection', function (socket) {
     } catch (err) {
       socket.emit('forceDisconnect');
       socket.disconnect();
-      console.log(err)
+      console.error(err)
     }
 
     function attachSocketEventListeners({ socket, roomId }) {
@@ -60,8 +63,11 @@ io.on('connection', function (socket) {
           .emit('peersCanvasActionStart', { id, data });
       })
       socket.on('canvasActionEnd', ({ data }) => {
+        if (recorderSocket.connected) {
+          recorderSocket.emit('write', { roomId, data });
+        }
         socket.broadcast.to(roomId)
-          .emit('peersCanvasActionEnd', { id, data });
+          .emit('peersCanvasActionEnd', { id });
       })
     }
 
@@ -78,7 +84,7 @@ io.on('connection', function (socket) {
       socket.on('tokenConsumed', () => {
         hubServer.consumeTimeToken(roomId)
           .then(data => {
-            io.to(roomId).emit('tokenConsumed', data)
+            io.to(roomId).emit('roomTokenConsumed', data)
           })
           .catch(err => {
             throw err;
