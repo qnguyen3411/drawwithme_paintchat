@@ -7,8 +7,17 @@ module.exports = {
 
   // Writing operations
 
-  recordJoin(roomId, userId) {
-
+  recordJoin(roomId, token) {
+    if (!token) return Promise.resolve(null);
+    return instance({
+      method: 'get',
+      url: '/rooms/join/' + roomId,
+      headers: { 'Authorization': token }
+    }).then(({ status, data }) => {
+      if (status !== 200) { return Promise.reject('Server response error'); }
+      console.log("ROOM JOIN RECORD SUCCESS")
+      return data.data;
+    })
   },
 
   async consumeTimeToken(roomId) {
