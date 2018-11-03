@@ -140,6 +140,11 @@ io.on('connection', function (socket) {
       socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
     });
 
+    socket.on('snapShot', ({data}) => {
+      console.log("GOT NGONDESTROY SIGNAL")
+      console.log(data);
+      recorderSocket.emit('snapShot', { roomId, data })
+    })
   }
 
   function attachChatEventListeners({ socket, roomId }) {
