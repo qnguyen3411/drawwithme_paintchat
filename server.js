@@ -1,6 +1,7 @@
 const express = require('express');
 
 const hubServer = require('./hub_api');
+const recorderServer = require('./recorder_api');
 
 const app = express();
 const server = app.listen(5000);
@@ -37,34 +38,26 @@ io.on('connection', function (socket) {
     }
   })
   
+  // Try to request canvas data from peers. If no peers, fetch a snapshot 
   async function fetchCanvasData({ socket, roomId }) {
     try {
-      const canvasRequestComplete = await requestCanvasDataFromPeers({ socket, roomId })
-      if (!canvasRequestComplete) {
-        // Fetch strokelog
-        socket.emit('strokeLogFetch', {id: roomId} );
+      const peer = await getRandomPeer(roomId);
+      if (!peer) {
+        const data = await recorderServer.fetchSnapshot(roomId)
+        if (data) {
+          socket.emit('canvasDataReceived', { data })
+        }
+      } else {
+        socket.to(peer).emit('peersCanvasRequest', { id: socket.client.id });
       }
     } catch (err) {
       throw err
     }
   }
 
-
-  async function requestCanvasDataFromPeers({ socket, roomId }) {
-    try {
-      const peer = await getRandomPeer(roomId);
-      if (!peer) return false;
-      socket.to(peer).emit('peersCanvasRequest', { id: socket.client.id });
-      return true;
-    } catch (err) {
-      throw err;
-    }
-  }
-
   function getRandomPeer(roomId) {
     return new Promise((resolve, reject) => {
       io.in(roomId).clients((error, clients) => {
-        console.log(clients)
         if (error) { reject(error) };
         if (!clients) { resolve(null) };
         const randIndex = Math.ceil(Math.random() * clients.length) - 1;
@@ -81,10 +74,18 @@ io.on('connection', function (socket) {
       { username: user.username, id: socket.client.id })
   }
 
+  function getAnonName() {
+    return "anon_" + Math.random().toString(36).substring(7);
+  }
+
   function attachSocketEventListeners({ socket, roomId }) {
-    attachCanvasEventListeners({ socket, roomId });
-    attachRoomEventListenters({ socket, roomId });
-    attachChatEventListeners({ socket, roomId });
+    try {
+      attachCanvasEventListeners({ socket, roomId });
+      attachRoomEventListenters({ socket, roomId });
+      attachChatEventListeners({ socket, roomId });
+    } catch (err) {
+      throw err;
+    }
   }
 
   function attachCanvasEventListeners({ socket, roomId }) {
@@ -112,39 +113,39 @@ io.on('connection', function (socket) {
   }
 
   function attachRoomEventListenters({ socket, roomId }) {
-
-    // Apparently this side knows that data is just a username str
-    socket.on('shareInfoWithPeer', ({ id, data }) => {
-      socket.to(id).emit('peerInfoShared', {
-        id: socket.client.id,
-        username: data
+    try {
+      socket.on('shareInfoWithPeer', ({ id, data }) => {
+        socket.to(id).emit('peerInfoShared', {
+          id: socket.client.id,
+          username: data
+        });
       });
-    });
 
-    socket.on('tokenConsumed', () => {
-      hubServer.consumeTimeToken(roomId)
-        .then(data => {
-          io.to(roomId).emit('roomTokenConsumed', data)
-        })
-        .catch(err => {
-          throw err;
-        })
-    });
+      socket.on('tokenConsumed', () => {
+        hubServer.consumeTimeToken(roomId)
+          .then(data => {
+            io.to(roomId).emit('roomTokenConsumed', data)
+          })
+          .catch(err => {
+            throw err;
+          })
+      });
 
-    socket.on('canvasDataToPeer', ({ id, data }) => {
-      console.log(socket.client.id, " SENDING DATA TO PEER ", id)
-      socket.to(id).emit('canvasDataReceived', { data })
-    });
-    ;
-    socket.on('disconnect', () => {
-      socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
-    });
+      socket.on('canvasDataToPeer', ({ id, data }) => {
+        console.log(socket.client.id, " SENDING DATA TO PEER ", id)
+        socket.to(id).emit('canvasDataReceived', { data })
+      });
 
-    socket.on('snapShot', ({data}) => {
-      console.log("GOT NGONDESTROY SIGNAL")
-      console.log(data);
-      recorderSocket.emit('snapShot', { roomId, data })
-    })
+      socket.on('disconnect', () => {
+        socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
+      });
+
+      socket.on('snapShot', ({ data }) => {
+        recorderSocket.emit('snapShot', { roomId, data })
+      })
+    } catch (err) {
+      throw err;
+    }
   }
 
   function attachChatEventListeners({ socket, roomId }) {
@@ -154,9 +155,7 @@ io.on('connection', function (socket) {
     })
   }
 
-  function getAnonName() {
-    return "anon_" + Math.random().toString(36).substring(7);
-  }
+
 
 })
 
