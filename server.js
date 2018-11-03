@@ -42,7 +42,7 @@ io.on('connection', function (socket) {
       const canvasRequestComplete = await requestCanvasDataFromPeers({ socket, roomId })
       if (!canvasRequestComplete) {
         // Fetch strokelog
-        console.log("CANVAS REQUEST FAILED. FETCHING STROKELOG")
+        socket.emit('strokeLogFetch', {id: roomId} );
       }
     } catch (err) {
       throw err
@@ -54,7 +54,6 @@ io.on('connection', function (socket) {
     try {
       const peer = await getRandomPeer(roomId);
       if (!peer) return false;
-      console.log("REQUESTING PEER", peer )
       socket.to(peer).emit('peersCanvasRequest', { id: socket.client.id });
       return true;
     } catch (err) {
