@@ -26,8 +26,8 @@ io.on('connection', function (socket) {
       fetchCanvasData({ socket, roomId });
       hubServer.recordJoin(roomId, data.token);
       resolveUser({ socket, roomId, token: data.token })
-      socket.join(roomId);
       socket.emit('roomInfo', room)
+      socket.join(roomId);
 
       attachSocketEventListeners({ socket, roomId });
 
@@ -37,7 +37,7 @@ io.on('connection', function (socket) {
       console.error(err)
     }
   })
-  
+
   // Try to request canvas data from peers. If no peers, fetch a snapshot 
   async function fetchCanvasData({ socket, roomId }) {
     try {
@@ -60,7 +60,7 @@ io.on('connection', function (socket) {
       io.in(roomId).clients((error, clients) => {
         if (error) { reject(error) };
         if (!clients) { resolve(null) };
-        const randIndex = Math.ceil(Math.random() * clients.length) - 1;
+        const randIndex = Math.floor(Math.random() * clients.length);
         resolve(clients[randIndex])
       })
     })
@@ -132,9 +132,16 @@ io.on('connection', function (socket) {
       });
 
       socket.on('canvasDataToPeer', ({ id, data }) => {
-        console.log(socket.client.id, " SENDING DATA TO PEER ", id)
         socket.to(id).emit('canvasDataReceived', { data })
       });
+
+      socket.on('timeOut', () => {
+        if (recorderSocket.connected) {
+          recorderSocket.emit('end', { roomId });
+        }
+        socket.emit('forceDisconnect');
+        socket.disconnect();  
+      })
 
       socket.on('disconnect', () => {
         socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
@@ -143,6 +150,8 @@ io.on('connection', function (socket) {
       socket.on('snapShot', ({ data }) => {
         recorderSocket.emit('snapShot', { roomId, data })
       })
+
+    
     } catch (err) {
       throw err;
     }
