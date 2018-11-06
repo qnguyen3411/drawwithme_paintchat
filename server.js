@@ -36,6 +36,7 @@ io.on('connection', function (socket) {
       socket.join(roomId);
       attachSocketEventListeners({ socket, roomId });
     } catch (err) {
+      console.log("FAILED TO ENTER ROOM, ERROR: ", err);
       socket.emit('forceDisconnect');
       socket.disconnect();
       console.error(err)
