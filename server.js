@@ -1,7 +1,8 @@
+require('dotenv').config()
 const express = require('express');
 
 const hubServer = require('./hub_api');
-// const recorderServer = require('./recorder_api');
+const recorderServer = require('./recorder_api');
 
 const app = express();
 const server = app.listen(5000, () => {
@@ -16,7 +17,6 @@ const io = require('socket.io')(server);
 // TODO: downgrade to lower socket version
 
 io.on('connection', function (socket) {
-  console.log("Connected! ", socket.client.id);
   socket.on('join', async function (data) {
     try {
       const roomId = data.room;
@@ -36,7 +36,6 @@ io.on('connection', function (socket) {
       socket.join(roomId);
       attachSocketEventListeners({ socket, roomId });
     } catch (err) {
-      console.log("FAILED TO ENTER ROOM, ERROR: ", err);
       socket.emit('forceDisconnect');
       socket.disconnect();
       console.error(err)
@@ -48,7 +47,7 @@ io.on('connection', function (socket) {
     try {
       const peer = await getRandomPeer(roomId);
       if (!peer) {
-        // socket.emit('snapShotFetch', {url: `http://localhost:1337/snapshots/${roomId}_snapshot.png`});
+        socket.emit('snapShotFetch', {url: process.env.SNAPSHOT_SERVER_ENDPOINT + `/snapshots/${roomId}_snapshot.png`});
       } else {
         socket.to(peer).emit('peersCanvasRequest', { id: socket.client.id });
       }
@@ -110,7 +109,7 @@ io.on('connection', function (socket) {
     })
     socket.on('canvasActionEnd', ({ data }) => {
 
-      // recorderServer.recordStroke(roomId, data)
+      recorderServer.recordStroke(roomId, data)
       socket.broadcast.to(roomId)
         .emit('peersCanvasActionEnd', { id });
     })
@@ -141,7 +140,7 @@ io.on('connection', function (socket) {
 
       socket.on('timeOut', () => {
 
-        // recorderServer.signalEnd(roomId);
+        recorderServer.signalEnd(roomId);
         socket.emit('forceDisconnect');
         socket.disconnect();
       })
@@ -151,7 +150,7 @@ io.on('connection', function (socket) {
       });
 
       socket.on('snapShot', ( ) => {
-        // recorderServer.signalSnapshot(roomId);
+        recorderServer.signalSnapshot(roomId);
       })
 
     } catch (err) {
