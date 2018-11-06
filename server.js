@@ -14,7 +14,7 @@ const io = require('socket.io')(server);
 // TODO: downgrade to lower socket version
 
 io.on('connection', function (socket) {
-
+  console.log("Connected! ", socket.client.id);
   socket.on('join', async function (data) {
     try {
       const roomId = data.room;
