@@ -6,12 +6,8 @@ const recorderServer = require('./recorder_api');
 const app = express();
 const server = app.listen(5000);
 
-// Set up stroke recorder
-const recorderSocket = require('socket.io-client')('http://localhost:9000');
-recorderSocket.on('connect', function () {
-  console.log("CONNECTED WITH SOCKET SERVER")
-})
 
+console.log("PID: ", process.pid);
 
 const io = require('socket.io')(server);
 // TODO: downgrade to lower socket version
@@ -22,15 +18,20 @@ io.on('connection', function (socket) {
     try {
       const roomId = data.room;
       const room = await hubServer.getRoomInfo(roomId);
-
+      socket.emit('roomInfo', room);
+      
       fetchCanvasData({ socket, roomId });
       hubServer.recordJoin(roomId, data.token);
-      resolveUser({ socket, roomId, token: data.token })
-      socket.emit('roomInfo', room)
+      resolveUser(data.token)
+        .then(user => {
+          socket.emit('assignedUsername', { username: user.username });
+          socket.broadcast.to(roomId).emit('peerJoined',
+            { username: user.username, id: socket.client.id })
+        })
+        .catch(err => { console.log(err) })
+
       socket.join(roomId);
-
       attachSocketEventListeners({ socket, roomId });
-
     } catch (err) {
       socket.emit('forceDisconnect');
       socket.disconnect();
@@ -43,10 +44,7 @@ io.on('connection', function (socket) {
     try {
       const peer = await getRandomPeer(roomId);
       if (!peer) {
-        const data = await recorderServer.fetchSnapshot(roomId)
-        if (data) {
-          socket.emit('canvasDataReceived', { data })
-        }
+        socket.emit('snapShotFetch', {url: `http://localhost:1337/snapshots/${roomId}_snapshot.png`});
       } else {
         socket.to(peer).emit('peersCanvasRequest', { id: socket.client.id });
       }
@@ -66,12 +64,15 @@ io.on('connection', function (socket) {
     })
   }
 
-  async function resolveUser({ socket, roomId, token }) {
-    let user = await hubServer.getUserIdentity(token);
-    user = user || { username: getAnonName() };
-    socket.emit('assignedUsername', { username: user.username });
-    socket.broadcast.to(roomId).emit('peerJoined',
-      { username: user.username, id: socket.client.id })
+  async function resolveUser(token) {
+    try {
+      let user = await hubServer.getUserIdentity(token);
+      user = user || { username: getAnonName() };
+      return user;
+
+     } catch (err) {
+      return { username: getAnonName() };
+     }
   }
 
   function getAnonName() {
@@ -104,9 +105,8 @@ io.on('connection', function (socket) {
         .emit('peersCanvasActionStart', { id, data });
     })
     socket.on('canvasActionEnd', ({ data }) => {
-      if (recorderSocket.connected) {
-        recorderSocket.emit('write', { roomId, data });
-      }
+
+      recorderServer.recordStroke(roomId, data)
       socket.broadcast.to(roomId)
         .emit('peersCanvasActionEnd', { id });
     })
@@ -136,22 +136,20 @@ io.on('connection', function (socket) {
       });
 
       socket.on('timeOut', () => {
-        if (recorderSocket.connected) {
-          recorderSocket.emit('end', { roomId });
-        }
+
+        recorderServer.signalEnd(roomId);
         socket.emit('forceDisconnect');
-        socket.disconnect();  
+        socket.disconnect();
       })
 
       socket.on('disconnect', () => {
         socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
       });
 
-      socket.on('snapShot', ({ data }) => {
-        recorderSocket.emit('snapShot', { roomId, data })
+      socket.on('snapShot', ( ) => {
+        recorderServer.signalSnapshot(roomId);
       })
 
-    
     } catch (err) {
       throw err;
     }
@@ -164,8 +162,4 @@ io.on('connection', function (socket) {
     })
   }
 
-
-
 })
-
-

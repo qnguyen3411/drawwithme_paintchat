@@ -15,7 +15,6 @@ module.exports = {
       headers: { 'Authorization': token }
     }).then(({ status, data }) => {
       if (status !== 200) { return Promise.reject('Server response error'); }
-      console.log("ROOM JOIN RECORD SUCCESS")
       return data.data;
     })
   },
