@@ -1,10 +1,7 @@
-const config = require('./config')
+require('dotenv').config()
 const axios = require('axios');
-const instance = axios.create({ baseURL: 'http://localhost:8000' })
-
+const instance = axios.create({ baseURL: process.env.HUB_ENDPOINT })
 module.exports = {
-
-
   // Writing operations
 
   recordJoin(roomId, token) {
