@@ -8,7 +8,9 @@ const server = app.listen(5000, () => {
   console.log("LISTENING ON 5000")
 });
 
-
+app.get('/test', (req, res) => {
+  res.send('hey');
+})
 
 const io = require('socket.io')(server);
 // TODO: downgrade to lower socket version
