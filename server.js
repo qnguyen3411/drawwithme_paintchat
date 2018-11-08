@@ -46,7 +46,6 @@ io.on('connection', function (socket) {
 
       socket.join(roomId);
       attachSocketEventListeners({ socket, roomId });
-      console.log(io.sockets.adapter.rooms)
     } catch (err) {
       socket.emit('forceDisconnect');
       socket.disconnect();
