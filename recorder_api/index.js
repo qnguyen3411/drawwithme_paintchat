@@ -11,8 +11,8 @@ module.exports = {
     })
   },
 
-  signalSnapshot(roomId) {
-    return recorderInstance.post('/snapshot/' + roomId, {})
+  signalSnapshot({roomId, data}) {
+    return recorderInstance.post('/snapshot/' + roomId, {data})
     .catch(err => {
       console.log(err);
     })

@@ -9,14 +9,25 @@ const server = app.listen(5000, () => {
   console.log("LISTENING ON 5000")
 });
 
-app.get('/test', (req, res) => {
-  res.send('hey');
-})
 
 const io = require('socket.io')(server);
 // TODO: downgrade to lower socket version
 
+setInterval(pollRooms, 20000)
+
+function pollRooms() {
+  Object.entries(io.sockets.adapter.rooms)
+    .filter(([roomId, sockets]) => !isNaN(roomId))
+    .map(([roomId, {sockets}]) => {
+      // Pick random socket in room
+      const socketsInRoom = Object.keys(sockets);
+      const randomSid = socketsInRoom[Math.floor(Math.random() * socketsInRoom.length)];
+      io.to(randomSid).emit('snapShotPoll', {roomId: roomId});
+    });
+}
+
 io.on('connection', function (socket) {
+
   socket.on('join', async function (data) {
     try {
       const roomId = data.room;
@@ -35,6 +46,7 @@ io.on('connection', function (socket) {
 
       socket.join(roomId);
       attachSocketEventListeners({ socket, roomId });
+      console.log(io.sockets.adapter.rooms)
     } catch (err) {
       socket.emit('forceDisconnect');
       socket.disconnect();
@@ -149,8 +161,8 @@ io.on('connection', function (socket) {
         socket.broadcast.to(roomId).emit('peerLeft', { id: socket.client.id });
       });
 
-      socket.on('snapShot', ( ) => {
-        recorderServer.signalSnapshot(roomId);
+      socket.on('snapShot', ({data}) => {
+        recorderServer.signalSnapshot({roomId, data});
       })
 
     } catch (err) {
