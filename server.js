@@ -24,6 +24,7 @@ function pollRooms() {
       const randomSid = socketsInRoom[Math.floor(Math.random() * socketsInRoom.length)];
       io.to(randomSid).emit('snapShotPoll', {roomId: roomId});
     });
+    io.emit('snapShotPollFinish');
 }
 
 io.on('connection', function (socket) {
