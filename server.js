@@ -146,7 +146,7 @@ io.on('connection', function (socket) {
       });
 
       socket.on('canvasDataToPeer', ({ id, data }) => {
-        socket.to(id).emit('canvasDataReceived', { data })
+        socket.to(id).binary(true).emit('canvasDataReceived', { data })
       });
 
       socket.on('timeOut', () => {
