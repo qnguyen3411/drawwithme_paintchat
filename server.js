@@ -9,9 +9,8 @@ const server = app.listen(5000, () => {
   console.log("LISTENING ON 5000")
 });
 
-
+console.log(process.pid);
 const io = require('socket.io')(server);
-// TODO: downgrade to lower socket version
 
 setInterval(pollRooms, 20000)
 
@@ -24,7 +23,7 @@ function pollRooms() {
       const randomSid = socketsInRoom[Math.floor(Math.random() * socketsInRoom.length)];
       io.to(randomSid).emit('snapShotPoll', {roomId: roomId});
     });
-    io.emit('snapShotPollFinish');
+  io.emit('snapShotPollFinish');
 }
 
 io.on('connection', function (socket) {
